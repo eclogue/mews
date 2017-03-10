@@ -14,11 +14,11 @@ use Courser\Model\Cache;
 
 abstract class Model
 {
-    protected $db = '';
+    protected $db;
 
     protected $cache = null;
 
-    protected $config = [];
+    protected static $config = [];
 
     protected $table = '';
 
@@ -37,11 +37,11 @@ abstract class Model
 
     public function __construct($config, $cache = null)
     {
-        $this->config = $config;
-        $this->db = new DB();
-        $this->db->add($config);
+        self::$config = $config;
+        $this->db = self::table($config);
         $this->cache = Cache::getCache($cache);
     }
+
 
     public function cache()
     {
@@ -57,17 +57,24 @@ abstract class Model
         return md5($str);
     }
 
+    public static function table($table) {
+        $db = new DB();
+        $db->add(self::$config);
+        $db->table($table);
+        return $db;
+    }
+
     public function register($value)
     {
         $key = $this->table . '#' . $this->flag;
         $this->cache->set($key, $value);
     }
 
-    public function table($table)
-    {
-        $this->table = $table;
-        return $this;
-    }
+//    public function table($table)
+//    {
+//        $this->table = $table;
+//        return $this;
+//    }
 
     public function update($data, $where)
     {
@@ -78,9 +85,8 @@ abstract class Model
 
     public function insert($data)
     {
-        if ($this->debug) $this->db = $this->db->debug();
         $this->before();
-        $this->result = $this->db->insert($this->table, $data);
+        $this->result = $this->db->insert($data);
         $this->after();
         $this->sql = $this->db->last_query();
 

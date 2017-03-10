@@ -11,7 +11,7 @@
         }
     ],
     "autoload": {
-        "psr-4": {"Courser\\": "src/"}
+        "psr-4": {"Mews\\": "src/"}
     },
     "repositories": [
         {

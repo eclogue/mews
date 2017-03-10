@@ -1,7 +1,5 @@
 <?php
-namespace Courser\Model;
-
-use Courser\Model\Parse;
+namespace Mews;
 
 class DB
 {
@@ -126,6 +124,7 @@ class DB
         foreach ($orderBy as $field => $sort) {
             $this->sql[] = 'ORDER BY `' . $field . '` ' . $sort;
         }
+        return $this;
     }
 
     public function skip($offset)
@@ -189,11 +188,12 @@ class DB
         return $this->linkw->query($sql, $this->values);
     }
 
-    public function insert($data) {
+    public function insert($data)
+    {
         $fields = [];
         $values = [];
         foreach ($data as $field => $value) {
-            $field[] = '`'. $field .'`';
+            $field[] = '`' . $field . '`';
             $values[] = $value;
         }
         $fields = implode(',', $fields);
@@ -227,5 +227,20 @@ class DB
     {
 
     }
-
 }
+
+$config = [
+    'host' => '10.0.6.49',
+    'port' => 3306,
+    'username' => 'impress',
+    'password' => 'yupoo123',
+    'database' => 'impress',
+];
+$db = new DB($config);
+$db->table('users');
+$db->field('*')
+    ->where(['id' => ['$gt' => '1']])
+    ->order(['username' => 'desc'])
+    ->limit(10)
+    ->skip(10)
+    ->select();

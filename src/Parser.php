@@ -1,6 +1,6 @@
 <?php
 
-namespace Courser\Model;
+namespace Mews;
 
 class Parse
 {

@@ -7,7 +7,7 @@
  * @time      : 下午4:51
  */
 
-namespace Courser\Model;
+namespace Mews;
 
 
 class Redis
