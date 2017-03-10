@@ -1,0 +1,33 @@
+{
+    "name": "racecourse/mews",
+    "description": "mysql for courser",
+    "version": "0.0.1",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "bugbear",
+            "email": "mulberry10th@gmail.com",
+            "homepage": "http://bugbear.me"
+        }
+    ],
+    "autoload": {
+        "psr-4": {"Courser\\": "src/"}
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/racecourse/mews"
+        },
+        {
+            "type": "composer",
+            "url": "https://packagist.phpcomposer.com"
+        }
+    ],
+    "require": {
+        "lcobucci/jwt": "^3.2",
+        "php": ">=5.5.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^6.0"
+    }
+}
