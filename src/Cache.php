@@ -9,7 +9,6 @@
 
 namespace Mews;
 
-use Courser\Model\Redis;
 
 class Cache
 {

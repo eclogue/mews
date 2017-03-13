@@ -7,22 +7,16 @@
  * @date      : 2016/11/30
  * @time      : 上午10:54
  */
-namespace Courser\Model;
+namespace Mews;
 
-use Courser\Model\DB;
-use Courser\Model\Cache;
 
-abstract class Model
+class Model
 {
     protected $db;
 
     protected $cache = null;
 
-    protected static $config = [];
-
     protected $table = '';
-
-    protected $sql = '';
 
     protected $flag = '';
 
@@ -34,12 +28,35 @@ abstract class Model
 
     public $fields = [];
 
+    protected $builder;
 
-    public function __construct($config, $cache = null)
+    public $lastSql = '';
+
+    private $_preSet = [];
+
+    public $id;
+
+
+    public function __construct($cache = null)
     {
-        self::$config = $config;
-        $this->db = self::table($config);
         $this->cache = Cache::getCache($cache);
+        $this->builder = new Builder();
+    }
+
+    public function setCache($cache)
+    {
+        $this->cache = $cache;
+    }
+
+    public function init(array $db)
+    {
+        $this->db = new DB();
+        $this->db->add($db);
+    }
+
+    public function builder()
+    {
+        return $this->builder();
     }
 
 
@@ -57,12 +74,6 @@ abstract class Model
         return md5($str);
     }
 
-    public static function table($table) {
-        $db = new DB();
-        $db->add(self::$config);
-        $db->table($table);
-        return $db;
-    }
 
     public function register($value)
     {
@@ -78,25 +89,27 @@ abstract class Model
 
     public function update($data, $where)
     {
-        if ($this->debug) $this->db->debug();
+        if ($this->debug) {
+            $this->db->debug();
+        }
         $this->before();
 
     }
 
     public function insert($data)
     {
-        $this->before();
-        $this->result = $this->db->insert($data);
-        $this->after();
-        $this->sql = $this->db->last_query();
+        list($this->lastSql, $value) = $this->builder->insert($data);
+        $this->result = $this->db->execute($this->lastSql, $value);
 
         return $this->result;
     }
 
     public function delete($where)
     {
-        $this->result = $this->db->delete($this->table, $where);
-        $this->sql = $this->db->last_query();
+        list($this->lastSql, $value) = $this->builder
+            ->where($where)
+            ->delete();
+        $this->result = $this->db->execute($this->lastSql, $value);
         $this->after();
 
         return $this->result;
@@ -104,10 +117,12 @@ abstract class Model
 
     public function findOne($where)
     {
-        if ($this->debug) $this->db->debug();
-        $this->result = $this->db->where($where)->select();
-//        $this->register($this->sql);
-//        $this->after();
+
+        list($this->lastSql, $value) = $this->builder
+            ->where($where)
+            ->limit(1)
+            ->select();
+        $this->result = $this->db->query($this->lastSql, $value);
 
         return $this->result;
     }
@@ -123,17 +138,35 @@ abstract class Model
         return $this->findOne(['id' => $id]);
     }
 
-    public function find($where, $options)
+    public function find($where, $options = [])
     {
-        $this->result = $this->db->where($where)->select();
+
+        $builder = $this->builder->where($where);
+        if (!empty($options)) {
+            foreach ($options as $method => $option) {
+                $builder = $builder->$method($option);
+            }
+        }
+
+        list($this->lastSql, $value) = $builder->select();
+        $this->result = $this->db->query($this->lastSql, $value);
 
         return $this->result;
     }
 
-    public function build()
+    public function findByIds($ids)
     {
-        return $this->db;
+        if (!is_array($ids)) {
+            throw new \Exception('FindIds param ids must be array');
+        }
+        $this->find(['id' => ['$in' => $ids]]);
     }
+
+    public function save()
+    {
+
+    }
+
 
     public function before()
     {
@@ -146,19 +179,22 @@ abstract class Model
     }
 
 
-    public function __call()
+    public function __call($func, $args)
     {
-
+        call_user_func_array([$this->builder, $func], $args);
     }
 
-    public function __get()
+    public function __get($key)
     {
-
+        if (isset($this->attr[$key]) && isset($this->result[$key])) {
+            return $this->result[$key];
+        }
+        return null;
     }
 
     public function __set($key, $value)
     {
-        $this->attr[$key] = $value;
+        $this->_preSet[$key] = $value;
     }
 
     protected function checkFields($fields)
@@ -171,3 +207,5 @@ abstract class Model
         return true;
     }
 }
+
+new Model();

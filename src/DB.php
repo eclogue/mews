@@ -4,15 +4,7 @@ namespace Mews;
 class DB
 {
 
-    protected $config = [];
-
-    protected $parser = null;
-
-    protected $sql = [];
-
-    protected $table = '';
-
-    protected $fields = [];
+    private $_config = [];
 
     private $linkr = null;
 
@@ -20,31 +12,26 @@ class DB
 
     private $links = [];
 
-    private $values = [];
-
-
-    public function __construct()
-    {
-        $this->parser = new Parse();
-    }
 
     public function add($config, $type = 'single')
     {
         $type = strtolower($type);
         if ($type === 'master') {
-            $this->config['master'] = $config;
+            $this->_config['master'] = $config;
         } else if ($type === 'slave') {
-            $this->config['slave'] = $config;
+            $this->_config['slave'] = $config;
         } else {
-            $this->config['single'] = $config;
+            $this->_config['single'] = $config;
         }
     }
 
     public function connect()
     {
         try {
-            foreach ($this->config as $type => $config) {
-                $connection = $this->getDB($config);
+            foreach ($this->_config as $type => $config) {
+                $len = count($config);
+                $index = mt_rand(0, $len - 1);
+                $connection = $config[$index];
                 $dsn = $this->dsn($connection);
                 if (!empty($this->links[$dsn])) {
                     $this->linkw = $this->links[$dsn]['linkw'];
@@ -73,15 +60,6 @@ class DB
         }
     }
 
-    public function getDB($connection)
-    {
-        if (!is_array($connection)) {
-            throw new \Error('DB connection must be array');
-        }
-        $len = count($connection);
-        $index = mt_rand(0, $len - 1);
-        return $connection[$index];
-    }
 
     private function dsn($config)
     {
@@ -99,133 +77,14 @@ class DB
         return $dsn;
     }
 
-    public function table($table)
+    public function query($sql)
     {
-        $this->table = $table;
-        return $this;
+        return $this->linkr->query($sql);
     }
 
-    public function field($field)
+    public function execute($sql)
     {
-        $this->fields = $this->wrapField($field);
-        return $this;
-    }
-
-    public function where($condition)
-    {
-        list($sql, $values) = $this->parser->build($condition);
-        $this->sql[] = $sql;
-        $this->values[] = $values;
-        return $this;
-    }
-
-    public function order($orderBy)
-    {
-        foreach ($orderBy as $field => $sort) {
-            $this->sql[] = 'ORDER BY `' . $field . '` ' . $sort;
-        }
-        return $this;
-    }
-
-    public function skip($offset)
-    {
-        $this->sql[] = 'OFFSET ' . $offset;
-        return $this;
-
-    }
-
-    public function limit($limit)
-    {
-        $this->sql[] = 'LIMIT ' . $limit;
-        return $this;
-    }
-
-
-    public function group($field)
-    {
-        $this->sql[] = 'GROUP BY `' . $field . '`';
-        return $this;
-    }
-
-    public function select()
-    {
-        $sql = 'SELECT %s FROM `%s` %s';
-        $sql = printf($sql, $this->fields, $this->table, $this->sql);
-        $this->sql = $sql;
-        return $this->linkr->query($sql, $this->values);
-    }
-
-    public function delete()
-    {
-        $sql = 'DELETE FROM `%s` %s';
-        $sql = printf($sql, $this->table, $this->sql);
-        $this->sql = $sql;
-        return $this->linkw->query($sql, $this->values);
-    }
-
-    public function update($data)
-    {
-        $set = '';
-        foreach ($data as $field => $value) {
-            if (is_string($value)) {
-                $set .= '`' . $field . '`=?';
-                $this->values[] = $value;
-                continue;
-            }
-            if (is_array($value)) {
-                if (isset($value['$increment'])) {
-                    $set .= '`' . $field . '`=' . $field . '+' . $value;
-                } else {
-                    $set .= '`' . $field . '`=?' . json_encode($value);
-                    $this->values[] = $value;
-                }
-            }
-        }
-        $sql = 'UPDATE `%s` SET %s %s';
-        $sql = printf($sql, $this->fields, $this->table, $this->sql);
-        $this->sql = $sql;
-
-        return $this->linkw->query($sql, $this->values);
-    }
-
-    public function insert($data)
-    {
-        $fields = [];
-        $values = [];
-        foreach ($data as $field => $value) {
-            $field[] = '`' . $field . '`';
-            $values[] = $value;
-        }
-        $fields = implode(',', $fields);
-        $values = implode(',', $values);
-        $sql = 'INSERT INTO `%s`(%s)VALUE(%s)';
-        $this->sql = printf($sql, $this->table, $fields, $values);
-
-        return $this->linkw->query($sql, $this->values);
-    }
-
-    public function wrapField($fields)
-    {
-        $handled = [];
-        foreach ($fields as $field) {
-            if (!$field !== '*') {
-                $handled[] = '`' . $field . '`';
-            } else {
-                $handled[] = $field;
-            }
-        }
-        return rtrim(implode(',', $handled), ',');
-    }
-
-
-    public function beforeQuery()
-    {
-
-    }
-
-    public function debug()
-    {
-
+        return $this->linkr->query($sql);
     }
 }
 
@@ -236,11 +95,7 @@ $config = [
     'password' => 'yupoo123',
     'database' => 'impress',
 ];
-$db = new DB($config);
-$db->table('users');
-$db->field('*')
-    ->where(['id' => ['$gt' => '1']])
-    ->order(['username' => 'desc'])
-    ->limit(10)
-    ->skip(10)
-    ->select();
+//$db = new DB($config);
+//$db->query('select * from users');
+var_dump($_ENV);
+
