@@ -29,9 +29,10 @@ class DB
     {
         try {
             foreach ($this->_config as $type => $config) {
-                $len = count($config);
-                $index = mt_rand(0, $len - 1);
-                $connection = $config[$index];
+//                $len = count($config);
+//                $index = mt_rand(0, $len - 1);
+//                $connection = $config[$index];
+                $connection = $config;
                 $dsn = $this->dsn($connection);
                 if (!empty($this->links[$dsn])) {
                     $this->linkw = $this->links[$dsn]['linkw'];
@@ -41,9 +42,9 @@ class DB
 
                 $link[$dsn] = new \PDO(
                     $dsn,
-                    $connection['username'],
-                    $connection['password'],
-                    $connection['options']
+                    $connection['user'],
+                    $connection['password']
+//                    $connection['options']
                 );
                 if ($type === 'master') {
                     $this->linkw = $link[$dsn];
@@ -63,39 +64,56 @@ class DB
 
     private function dsn($config)
     {
+        if (!isset($config['post'])) {
+            $config['port'] = 3306;
+        }
         $dsn = 'mysql:';
         if (is_array($config)) {
 
         }
-        if (isset($config) && $config['socket']) {
+        if (isset($config['socket'])) {
             $dsn .= 'unix_socket=' . $config['socket'];
         } else {
             $dsn .= 'host=' . $config['host'] . ';port=' . $config['port'];
         }
-        $dsn .= ';dbname=' . $config['db'];
+        $dsn .= ';dbname=' . $config['database'];
 
         return $dsn;
     }
 
-    public function query($sql)
+    public function query($sql, $value = null)
     {
-        return $this->linkr->query($sql);
+        $query = $this->linkr->prepare($sql);
+
+        if ($value) {
+            $res = $query->execute($value);
+        } else {
+            $res = $query->execute();
+        }
+        if (!$res) return null;
+
+        return $this->fetch($query);
     }
 
     public function execute($sql)
     {
         return $this->linkr->query($sql);
     }
+
+    public function fetch($query)
+    {
+        $res = [];
+        while ($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+            $res[] = $row;
+        }
+
+        return $res;
+    }
+
+    public function prepare($sql)
+    {
+
+    }
 }
 
-$config = [
-    'host' => '10.0.6.49',
-    'port' => 3306,
-    'username' => 'impress',
-    'password' => 'yupoo123',
-    'database' => 'impress',
-];
-//$db = new DB($config);
-//$db->query('select * from users');
-var_dump($_ENV);
 

@@ -2,7 +2,7 @@
 
 namespace Mews;
 
-class Parse
+class Parser
 {
 
     public static $logical = [
@@ -110,7 +110,7 @@ class Parse
 
         $this->sql = 'WHERE(' . $this->sql . ')';
 
-        $ret = ['sql' => $this->sql, 'values'=> $this->values];
+        $ret = [$this->sql, $this->values];
         $this->sql = '';
         $this->values = [];
 

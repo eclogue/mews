@@ -24,7 +24,6 @@
         }
     ],
     "require": {
-        "lcobucci/jwt": "^3.2",
         "php": ">=5.5.0"
     },
     "require-dev": {

@@ -25,7 +25,7 @@ class Builder
 
     public function __construct()
     {
-        $this->parser = new Parse();
+        $this->parser = new Parser();
     }
 
     public function table($table)
@@ -43,8 +43,10 @@ class Builder
     public function where($condition)
     {
         list($sql, $values) = $this->parser->build($condition);
-        $this->sql[] = $sql;
-        $this->values[] = $values;
+        $this->sql = $sql;
+        foreach ($values as $key => $value) {
+            $this->values[] = $value;
+        }
         return $this;
     }
 
@@ -79,14 +81,20 @@ class Builder
     public function select()
     {
         $sql = 'SELECT %s FROM `%s` %s';
-        $sql = printf($sql, $this->fields, $this->table, $this->sql);
-        return $this->sql = $sql;
+        if(empty($this->fields)) {
+            $fields = '*';
+        } else {
+            $fields = implode(',', $this->fields);
+        }
+        $sql = sprintf($sql, $fields, $this->table, $this->sql);
+        $this->sql = $sql;
+        return [$sql, $this->values];
     }
 
     public function delete()
     {
         $sql = 'DELETE FROM `%s` %s';
-        $sql = printf($sql, $this->table, $this->sql);
+        $sql = sprintf($sql, $this->table, $this->sql);
         return $this->sql = $sql;
     }
 
@@ -109,7 +117,7 @@ class Builder
             }
         }
         $sql = 'UPDATE `%s` SET %s %s';
-        $sql = printf($sql, $this->fields, $this->table, $this->sql);
+        $sql = sprintf($sql, $this->fields, $this->table, $this->sql);
         return $this->sql = $sql;
     }
 
@@ -124,7 +132,7 @@ class Builder
         $fields = implode(',', $fields);
         $values = implode(',', $values);
         $sql = 'INSERT INTO `%s`(%s)VALUE(%s)';
-        return $this->sql = printf($sql, $this->table, $fields, $values);
+        return $this->sql = sprintf($sql, $this->table, $fields, $values);
     }
 
     public function wrapField($fields)

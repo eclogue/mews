@@ -16,7 +16,7 @@ class Model
 
     protected $cache = null;
 
-    protected $table = '';
+    public $table = '';
 
     protected $flag = '';
 
@@ -39,8 +39,9 @@ class Model
 
     public function __construct($cache = null)
     {
-        $this->cache = Cache::getCache($cache);
+//        $this->cache = Cache::getCache($cache);
         $this->builder = new Builder();
+        $this->builder->table('user');
     }
 
     public function setCache($cache)
@@ -52,6 +53,7 @@ class Model
     {
         $this->db = new DB();
         $this->db->add($db);
+        $this->db->connect();
     }
 
     public function builder()
@@ -59,14 +61,14 @@ class Model
         return $this->builder();
     }
 
-
-    public function cache()
-    {
-        $this->cache->register($this->table, $this->flag);
-        $key = $this->cacheKey();
-        $this->cache->set($key, $this->result);
-        return $this;
-    }
+//
+//    public function cache()
+//    {
+//        $this->cache->register($this->table, $this->flag);
+//        $key = $this->cacheKey();
+//        $this->cache->set($key, $this->result);
+//        return $this;
+//    }
 
     public function cacheKey()
     {
@@ -208,4 +210,3 @@ class Model
     }
 }
 
-new Model();
