@@ -10,7 +10,6 @@
 define('ROOT', dirname(dirname(__FILE__)));
 require ROOT . '/vendor/autoload.php';
 use Mews\Model;
-use Mews\DB;
 
 $config = [
     'host' => '127.0.0.1',
@@ -28,5 +27,7 @@ $condition = [
 $model->init($config);
 $result = $model->find($condition);
 var_dump($result);
+$user = $model->findById(11);
+var_dump($user);
 
 

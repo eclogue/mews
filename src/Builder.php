@@ -10,7 +10,6 @@
 namespace Mews;
 
 
-
 class Builder
 {
     public $sql = [];
@@ -43,7 +42,7 @@ class Builder
     public function where($condition)
     {
         list($sql, $values) = $this->parser->build($condition);
-        $this->sql = $sql;
+        $this->sql[] = $sql;
         foreach ($values as $key => $value) {
             $this->values[] = $value;
         }
@@ -81,14 +80,17 @@ class Builder
     public function select()
     {
         $sql = 'SELECT %s FROM `%s` %s';
-        if(empty($this->fields)) {
+        if (empty($this->fields)) {
             $fields = '*';
         } else {
             $fields = implode(',', $this->fields);
         }
+        $this->sql = implode(' ', $this->sql);
         $sql = sprintf($sql, $fields, $this->table, $this->sql);
-        $this->sql = $sql;
-        return [$sql, $this->values];
+        $ret = [$sql, $this->values];
+        $this->sql = [];
+        $this->values = [];
+        return $ret;
     }
 
     public function delete()

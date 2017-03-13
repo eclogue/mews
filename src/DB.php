@@ -17,11 +17,11 @@ class DB
     {
         $type = strtolower($type);
         if ($type === 'master') {
-            $this->_config['master'] = $config;
+            $this->_config['master'][] = $config;
         } else if ($type === 'slave') {
-            $this->_config['slave'] = $config;
+            $this->_config['slave'][] = $config;
         } else {
-            $this->_config['single'] = $config;
+            $this->_config['single'][] = $config;
         }
     }
 
@@ -29,10 +29,9 @@ class DB
     {
         try {
             foreach ($this->_config as $type => $config) {
-//                $len = count($config);
-//                $index = mt_rand(0, $len - 1);
-//                $connection = $config[$index];
-                $connection = $config;
+                $len = count($config);
+                $index = mt_rand(0, $len - 1);
+                $connection = $config[$index];
                 $dsn = $this->dsn($connection);
                 if (!empty($this->links[$dsn])) {
                     $this->linkw = $this->links[$dsn]['linkw'];

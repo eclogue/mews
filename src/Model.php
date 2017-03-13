@@ -125,6 +125,7 @@ class Model
             ->limit(1)
             ->select();
         $this->result = $this->db->query($this->lastSql, $value);
+        if ($this->result) $this->result = array_pop($this->result);
 
         return $this->result;
     }

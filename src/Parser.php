@@ -113,6 +113,7 @@ class Parser
         $ret = [$this->sql, $this->values];
         $this->sql = '';
         $this->values = [];
+        $this->tree = [];
 
         return $ret;
     }
