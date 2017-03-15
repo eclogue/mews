@@ -9,7 +9,6 @@
  */
 namespace Mews;
 
-
 class Model
 {
     protected $db;
@@ -28,16 +27,14 @@ class Model
 
     public $fields = [
         'id' => ['column' => 'id', 'type' => 'int', 'pk' => true],
-        'username' => ['column' => 'username', 'type'=> 'string'],
+        'username' => ['column' => 'username', 'type' => 'string'],
     ];
 
     protected $builder;
 
     public $lastSql = '';
 
-    private $_preSet = [];
-
-    public $pk = 'id';
+    public $pk;
 
 
     public function __construct($cache = null)
@@ -131,16 +128,15 @@ class Model
             ->where($where)
             ->limit(1)
             ->select();
-        $this->result = $this->db->query($this->lastSql, $value);
-        if ($this->result) $this->result = array_pop($this->result);
-        return $this->convert($this->result);
+        $result = $this->db->query($this->lastSql, $value);
+        if ($result) $result = array_pop($result);
+        return $this->map($result);
     }
 
     public function findByIndex($index, $value)
     {
         return $this->findOne([$index => $value]);
     }
-
 
     public function findById($id)
     {
@@ -158,10 +154,10 @@ class Model
         }
 
         list($this->lastSql, $value) = $builder->select();
-        $this->result = $this->db->query($this->lastSql, $value);
+        $result = $this->db->query($this->lastSql, $value);
         $res = [];
-        foreach ($this->result as $key => $data) {
-            $res[] = $this->convert($data);
+        foreach($result as $data) {
+            $res[] = $this->map($data);
         }
 
         return $res;
@@ -177,15 +173,41 @@ class Model
 
     public function save()
     {
+        $data = [];
+        foreach ($this->fields as $field => $entity) {
+            if ($entity['value'] !== $this->attr[$field]) {
+                $data[$entity['column']] = $this->attr[$field];
+                $this->fields[$field]['value'] = $this->attr[$field];
+            }
+        }
 
+        if (!empty($data)) {
+            if($this->pk) {
+                $condition = [
+                    'id' => $this->pk,
+                ];
+                $this->update($data, $condition);
+            } else {
+                $this->insert($data);
+            }
+        }
     }
 
-    protected function convert($data)
+    public function remove()
+    {
+        if(!$this->pk)  return false;
+        return $this->delete(['id' => $this->pk]);
+    }
+
+    public function map($data)
     {
         $model = new self();
-        foreach($this->fields as $field => $entity) {
+        foreach ($this->fields as $field => $entity) {
             $model->attr[$field] = $data[$entity['column']];
             $model->fields[$field]['value'] = $data[$entity['column']];
+            if (isset($entity['pk'])) {
+                $model->pk = $data[$entity['column']];
+            }
         }
 
         return $model;
@@ -218,7 +240,7 @@ class Model
 
     public function __set($key, $value)
     {
-        if(isset($this->fields[$key]))
+        if (isset($this->fields[$key]))
             $this->attr[$key] = $value;
     }
 

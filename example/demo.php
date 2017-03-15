@@ -26,8 +26,8 @@ $condition = [
 ];
 $model->init($config);
 $result = $model->find($condition);
-var_dump($result);
+var_dump($result->attr);
 $user = $model->findById(11);
-var_dump($user);
+var_dump($user->attr);
 
 
