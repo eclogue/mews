@@ -20,7 +20,7 @@ $config = [
 //$db = new DB();
 //$db->add($config);
 $model = new Model();
-$model->table = 'user';
+$model->table('user');
 $condition = [
     'id' => [ '$gt' => 1],
 ];

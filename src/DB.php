@@ -4,64 +4,77 @@ namespace Mews;
 class DB
 {
 
-    private $_config = [];
+    private static $_config = [];
 
     private $linkr = null;
 
     private $linkw = null;
 
-    private $links = [];
+    private static $links = [];
+
+    private static $instance = [];
 
 
-    public function add($config, $type = 'single')
+    public static function add($config, $type = 'single')
     {
         $type = strtolower($type);
         if ($type === 'master') {
-            $this->_config['master'][] = $config;
+            self::$_config['master'][] = $config;
         } else if ($type === 'slave') {
-            $this->_config['slave'][] = $config;
+            self::$_config['slave'][] = $config;
         } else {
-            $this->_config['single'][] = $config;
+            self::$_config['single'][] = $config;
         }
     }
 
-    public function connect()
+    public static function create($config, $type = 'single') {
+        $dsn = self::dsn($config);
+        if(!isset(self::$instance[$dsn])) {
+            self::$instance[$dsn] = new DB();
+            self::$instance[$dsn]->add($config);
+            self::$instance[$dsn]->connect($type);
+        }
+
+        return self::$instance[$dsn];
+    }
+
+
+    public function connect($type = 'single')
     {
         try {
-            foreach ($this->_config as $type => $config) {
-                $len = count($config);
-                $index = mt_rand(0, $len - 1);
-                $connection = $config[$index];
-                $dsn = $this->dsn($connection);
-                if (!empty($this->links[$dsn])) {
-                    $this->linkw = $this->links[$dsn]['linkw'];
-                    $this->linkr = $this->links[$dsn]['linkr'];
-                    continue;
-                }
-
-                $link[$dsn] = new \PDO(
-                    $dsn,
-                    $connection['user'],
-                    $connection['password']
-//                    $connection['options']
-                );
-                if ($type === 'master') {
-                    $this->linkw = $link[$dsn];
-                } else if ($type === 'slave') {
-                    $this->linkr = $link[$dsn];
-                } else {
-                    $this->linkr = $this->linkw = $link[$dsn];
-                }
-                $this->links[$dsn]['linkw'] = $this->linkw;
-                $this->links[$dsn]['linkr'] = $this->linkr;
+            $config = self::$_config[$type];
+            $len = count($config);
+            $index = mt_rand(0, $len - 1);
+            $connection = $config[$index];
+            $dsn = self::dsn($connection);
+            if (!empty(self::$links[$dsn])) {
+                $this->linkw = self::$links[$dsn]['linkw'];
+                $this->linkr = self::$links[$dsn]['linkr'];
+                return;
             }
+
+            $link[$dsn] = new \PDO(
+                $dsn,
+                $connection['user'],
+                $connection['password']
+//                    $connection['options']
+            );
+            if ($type === 'master') {
+                $this->linkw = $link[$dsn];
+            } else if ($type === 'slave') {
+                $this->linkr = $link[$dsn];
+            } else {
+                $this->linkr = $this->linkw = $link[$dsn];
+            }
+            self::$links[$dsn]['linkw'] = $this->linkw;
+            self::$links[$dsn]['linkr'] = $this->linkr;
         } catch (\Exception $err) {
             throw new \Error('DB connect error,' . $err->getMessage());
         }
     }
 
 
-    private function dsn($config)
+    private static function dsn($config)
     {
         if (!isset($config['post'])) {
             $config['port'] = 3306;
