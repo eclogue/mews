@@ -14,6 +14,8 @@ class DB
 
     private static $instance = [];
 
+    public $debug = true;
+
 
     public static function add($config, $type = 'single')
     {
@@ -95,6 +97,9 @@ class DB
 
     public function query($sql, $value = null)
     {
+        if($this->debug) {
+            echo "debug sql: " . $sql . " #args:" . json_encode($value);
+        }
         $query = $this->linkr->prepare($sql);
 
         if ($value) {

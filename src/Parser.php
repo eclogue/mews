@@ -6,9 +6,9 @@ class Parser
 {
 
     public static $logical = [
-        '$and' => ' and ',
-        '$or' => ' or ',
-        '$not' => ' not ',
+        '$and' => ' AND ',
+        '$or' => ' OR ',
+        '$not' => ' NOT ',
 //        '$xor',
     ];
 
@@ -57,7 +57,7 @@ class Parser
                     $node['value'] = $value;
                     $length = count($this->tree);
                     $length = $length ? $length - 1 : 0;
-                    $prev = $length ? $this->tree[$length] : [];
+                    $prev = isset($this->tree[$length]) ? $this->tree[$length] : [];
                     if (isset($prev['type']) && $prev['type'] === 'field') {
                         $this->tree[] = $this->getDefaultNode($child);
                     }
@@ -81,7 +81,7 @@ class Parser
     {
         return [
             'type' => 'operator',
-            'name' => ' and ',
+            'name' => 'AND',
             'value' => $child ? 0 : 1,
         ];
     }
@@ -99,7 +99,13 @@ class Parser
         $this->generateNode($entities);
         foreach ($this->tree as $key => $node) {
             if ($node['type'] === 'field') {
-                $this->sql .= $this->parseFieldNode($node);
+//                if(!$this->sql) {
+//                    $this->sql .= ltrim($this->parseFieldNode($node), 'AND');
+//                } else {
+//                    $this->sql .=  $this->parseFieldNode($node);
+//                }
+                $this->sql .=  $this->parseFieldNode($node);
+
             } else {
                 if ($node['value'] === 1) { // last child
                     $this->sql .= ')';
@@ -122,7 +128,7 @@ class Parser
     {
         $string = '';
         $filed = '`' . $node['name'] . '`';
-        $connector = ' and ';
+        $connector = 'AND';
         foreach ($node['value'] as $operator => $value) {
             $temp = [$filed];
             $temp[] = self::$operator[$operator];

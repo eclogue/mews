@@ -15,17 +15,18 @@ class Model
 
     protected $cache = null;
 
-    public $table = '';
+    protected $table = '';
 
     protected $flag = '';
 
-    protected $result = '';
+    protected $result = [];
 
     protected $debug = false;
 
     public $attr = [];
 
-    public $fields = [
+
+    protected $fields = [
         'id' => ['column' => 'id', 'type' => 'int', 'pk' => true],
         'username' => ['column' => 'username', 'type' => 'string'],
     ];
@@ -34,7 +35,7 @@ class Model
 
     public $lastSql = '';
 
-    public $pk;
+    protected $pk;
 
 
     public function __construct($cache = null)
@@ -95,15 +96,16 @@ class Model
 
     public function update($data, $where)
     {
+        $data = $this->revertFields($data);
         if ($this->debug) {
             $this->db->debug();
         }
         $this->before();
-
     }
 
     public function insert($data)
     {
+        $data = $this->revertFields($data);
         list($this->lastSql, $value) = $this->builder->insert($data);
         $this->result = $this->db->execute($this->lastSql, $value);
 
@@ -112,6 +114,7 @@ class Model
 
     public function delete($where)
     {
+        $where = $this->revertFields($where);
         list($this->lastSql, $value) = $this->builder
             ->where($where)
             ->delete();
@@ -123,13 +126,14 @@ class Model
 
     public function findOne($where)
     {
-
+        $where = $this->revertFields($where);
         list($this->lastSql, $value) = $this->builder
             ->where($where)
             ->limit(1)
             ->select();
+        var_dump($this->lastSql, $value);
         $result = $this->db->query($this->lastSql, $value);
-        if ($result) $result = array_pop($result);
+        if (!empty($result)) $result = array_pop($result);
         return $this->map($result);
     }
 
@@ -145,7 +149,7 @@ class Model
 
     public function find($where, $options = [])
     {
-
+        $where = $this->revertFields($where);
         $builder = $this->builder->where($where);
         if (!empty($options)) {
             foreach ($options as $method => $option) {
@@ -155,6 +159,27 @@ class Model
 
         list($this->lastSql, $value) = $builder->select();
         $result = $this->db->query($this->lastSql, $value);
+        if(!$result) return null;
+        $res = [];
+        foreach($result as $data) {
+            $res[] = $this->map($data);
+        }
+
+        return $res;
+    }
+
+    public function findAll($options = [])
+    {
+        $builder = $this->builder();
+        if (!empty($options)) {
+            $options = $this->revertFields($options);
+            foreach ($options as $method => $option) {
+                $builder = $builder->$method($option);
+            }
+        }
+        list($this->lastSql, $value) = $builder->select();
+        $result = $this->db->query($this->lastSql, $value);
+        if(!$result) return null;
         $res = [];
         foreach($result as $data) {
             $res[] = $this->map($data);
@@ -202,6 +227,7 @@ class Model
     public function map($data)
     {
         $model = new self();
+        $model->table = $this->table;
         foreach ($this->fields as $field => $entity) {
             $model->attr[$field] = $data[$entity['column']];
             $model->fields[$field]['value'] = $data[$entity['column']];
@@ -244,14 +270,21 @@ class Model
             $this->attr[$key] = $value;
     }
 
-    protected function checkFields($fields)
+    protected function revertFields($fields)
     {
-        if (is_string($fields)) return isset($this->fields[$fields]);
+        $res = [];
         foreach ($fields as $field => $value) {
-            if (!isset($this->fields[$field])) return false;
+            if (!isset($this->fields[$field])) continue;
+            $column = $this->fields[$field]['column'];
+            $res[$column] = $value;
         }
 
-        return true;
+        return $res;
+    }
+
+    public function toArray()
+    {
+        return is_array($this->attr) ? $this->attr : [];
     }
 }
 

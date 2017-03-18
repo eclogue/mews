@@ -1,0 +1,7 @@
+{
+  "watch": ".",
+  "script": "php",
+  "execute": "api/server.php",
+  "ignore": ["node_modules", "vendor"],
+  "safe": false
+}
