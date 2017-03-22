@@ -21,9 +21,11 @@ class Model
 
     protected $result = [];
 
-    protected $debug = false;
+    protected $debug = true;
 
     public $attr = [];
+
+    protected $pk;
 
 
     protected $fields = [
@@ -35,7 +37,7 @@ class Model
 
     public $lastSql = '';
 
-    protected $pk;
+
 
 
     public function __construct($cache = null)
@@ -108,7 +110,7 @@ class Model
         $data = $this->revertFields($data);
         list($this->lastSql, $value) = $this->builder->insert($data);
         $this->result = $this->db->execute($this->lastSql, $value);
-
+        var_dump($this->result);
         return $this->result;
     }
 
@@ -131,7 +133,6 @@ class Model
             ->where($where)
             ->limit(1)
             ->select();
-        var_dump($this->lastSql, $value);
         $result = $this->db->query($this->lastSql, $value);
         if (!empty($result)) $result = array_pop($result);
         return $this->map($result);
@@ -159,9 +160,9 @@ class Model
 
         list($this->lastSql, $value) = $builder->select();
         $result = $this->db->query($this->lastSql, $value);
-        if(!$result) return null;
+        if (!$result) return null;
         $res = [];
-        foreach($result as $data) {
+        foreach ($result as $data) {
             $res[] = $this->map($data);
         }
 
@@ -179,9 +180,9 @@ class Model
         }
         list($this->lastSql, $value) = $builder->select();
         $result = $this->db->query($this->lastSql, $value);
-        if(!$result) return null;
+        if (!$result) return null;
         $res = [];
-        foreach($result as $data) {
+        foreach ($result as $data) {
             $res[] = $this->map($data);
         }
 
@@ -199,34 +200,51 @@ class Model
     public function save()
     {
         $data = [];
-        foreach ($this->fields as $field => $entity) {
-            if ($entity['value'] !== $this->attr[$field]) {
-                $data[$entity['column']] = $this->attr[$field];
-                $this->fields[$field]['value'] = $this->attr[$field];
-            }
-        }
-
-        if (!empty($data)) {
-            if($this->pk) {
+        if (!empty($this->attr)) {
+            if ($this->pk) {
+                $pkName = '';
+                foreach ($this->fields as $field => $entity) {
+                    if (isset($this->attr[$field]) && $entity['value'] !== $this->attr[$field]) {
+                        $data[$field] = $this->attr[$field];
+                        $this->fields[$field]['value'] = $this->attr[$field];
+                    }
+                    if(isset($entity['pk'])) {
+                        $pkName = $entity['column'];
+                    }
+                }
                 $condition = [
-                    'id' => $this->pk,
+                    $pkName => $this->pk,
                 ];
                 $this->update($data, $condition);
             } else {
-                $this->insert($data);
+                foreach ($this->fields as $field => $entity) {
+                    if (isset($this->attr[$field])) {
+                        $data[$field] = $this->attr[$field];
+                        $this->fields[$field]['value'] = $this->attr[$field];
+                    } else if (isset($entity['default'])) {
+                        $data[$field] = $entity['default'];
+                        $this->attr[$field] = $entity['default'];
+                    }
+                }
+                $this->pk = $this->insert($data);
+                $this->attr['id'] = $this->pk;
+                return $this->pk;
             }
         }
+
+        return null;
     }
 
     public function remove()
     {
-        if(!$this->pk)  return false;
+        if (!$this->pk) return false;
         return $this->delete(['id' => $this->pk]);
     }
 
     public function map($data)
     {
-        $model = new self();
+        $class = get_class($this);
+        $model = new $class();
         $model->table = $this->table;
         foreach ($this->fields as $field => $entity) {
             $model->attr[$field] = $data[$entity['column']];

@@ -107,14 +107,34 @@ class DB
         } else {
             $res = $query->execute();
         }
+        if($query->errorCode() !== '00000') {
+            var_dump($query->errorInfo(), $query->errorCode());
+        }
         if (!$res) return null;
 
         return $this->fetch($query);
     }
 
-    public function execute($sql)
+    public function execute($sql, $value = null)
     {
-        return $this->linkr->query($sql);
+        if($this->debug) {
+            echo "debug sql: " . $sql . " #args:" . json_encode($value);
+        }
+        $query = $this->linkr->prepare($sql);
+
+        if ($value) {
+            $res = $query->execute($value);
+        } else {
+            $res = $query->execute();
+        }
+        if($query->errorCode() !== '00000') {
+            throw new \Exception('Execute Sql Exception:' . implode('# ', $query->errorInfo()));
+        }
+        preg_match('#INSERT INTO#', $sql, $match);
+        if($match) {
+            return $this->linkw->lastInsertId();
+        }
+        return $res;
     }
 
     public function fetch($query)

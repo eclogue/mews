@@ -127,14 +127,18 @@ class Builder
     {
         $fields = [];
         $values = [];
+        $placeholder = [];
         foreach ($data as $field => $value) {
-            $field[] = '`' . $field . '`';
+            $fields[] = '`' . $field . '`';
             $values[] = $value;
+            $placeholder[] = '?';
         }
         $fields = implode(',', $fields);
-        $values = implode(',', $values);
+        $placeholder = implode(',', $placeholder);
         $sql = 'INSERT INTO `%s`(%s)VALUE(%s)';
-        return $this->sql = sprintf($sql, $this->table, $fields, $values);
+        $sql = sprintf($sql, $this->table, $fields, $placeholder);
+
+        return [$sql, $values];
     }
 
     public function wrapField($fields)
