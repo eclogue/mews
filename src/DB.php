@@ -108,7 +108,7 @@ class DB
             $res = $query->execute();
         }
         if($query->errorCode() !== '00000') {
-            var_dump($query->errorInfo(), $query->errorCode());
+            // var_dump($query->errorInfo(), $query->errorCode());
         }
         if (!$res) return null;
 

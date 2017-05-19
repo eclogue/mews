@@ -9,7 +9,7 @@
  */
 namespace Mews;
 
-class Model
+class Model implements \ArrayAccess
 {
     protected $db;
 
@@ -23,7 +23,7 @@ class Model
 
     protected $debug = true;
 
-    public $attr = [];
+    protected $attr = [];
 
     protected $pk;
 
@@ -36,8 +36,6 @@ class Model
     protected $builder;
 
     public $lastSql = '';
-
-
 
 
     public function __construct($cache = null)
@@ -90,11 +88,6 @@ class Model
         $this->cache->set($key, $value);
     }
 
-//    public function table($table)
-//    {
-//        $this->table = $table;
-//        return $this;
-//    }
 
     public function update($data, $where)
     {
@@ -110,7 +103,6 @@ class Model
         $data = $this->revertFields($data);
         list($this->lastSql, $value) = $this->builder->insert($data);
         $this->result = $this->db->execute($this->lastSql, $value);
-        var_dump($this->result);
         return $this->result;
     }
 
@@ -134,8 +126,12 @@ class Model
             ->limit(1)
             ->select();
         $result = $this->db->query($this->lastSql, $value);
-        if (!empty($result)) $result = array_pop($result);
-        return $this->map($result);
+        if (empty($result)) {
+            return null;
+        }
+        $result = array_pop($result);
+
+        return $this->fetch($result);
     }
 
     public function findByIndex($index, $value)
@@ -160,10 +156,10 @@ class Model
 
         list($this->lastSql, $value) = $builder->select();
         $result = $this->db->query($this->lastSql, $value);
-        if (!$result) return null;
+        if (!$result) return [];
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->map($data);
+            $res[] = $this->fetch($data);
         }
 
         return $res;
@@ -199,37 +195,38 @@ class Model
 
     public function save()
     {
+        if (empty($this->attr)) {
+            return null;
+        }
         $data = [];
-        if (!empty($this->attr)) {
-            if ($this->pk) {
-                $pkName = '';
-                foreach ($this->fields as $field => $entity) {
-                    if (isset($this->attr[$field]) && $entity['value'] !== $this->attr[$field]) {
-                        $data[$field] = $this->attr[$field];
-                        $this->fields[$field]['value'] = $this->attr[$field];
-                    }
-                    if(isset($entity['pk'])) {
-                        $pkName = $entity['column'];
-                    }
+        if ($this->pk) {
+            $pkName = '';
+            foreach ($this->fields as $field => $entity) {
+                if (isset($this->attr[$field]) && $entity['value'] !== $this->attr[$field]) {
+                    $data[$field] = $this->attr[$field];
+                    $this->fields[$field]['value'] = $this->attr[$field];
                 }
-                $condition = [
-                    $pkName => $this->pk,
-                ];
-                $this->update($data, $condition);
-            } else {
-                foreach ($this->fields as $field => $entity) {
-                    if (isset($this->attr[$field])) {
-                        $data[$field] = $this->attr[$field];
-                        $this->fields[$field]['value'] = $this->attr[$field];
-                    } else if (isset($entity['default'])) {
-                        $data[$field] = $entity['default'];
-                        $this->attr[$field] = $entity['default'];
-                    }
+                if (isset($entity['pk'])) {
+                    $pkName = $entity['column'];
                 }
-                $this->pk = $this->insert($data);
-                $this->attr['id'] = $this->pk;
-                return $this->pk;
             }
+            $condition = [
+                $pkName => $this->pk,
+            ];
+            $this->update($data, $condition);
+        } else {
+            foreach ($this->fields as $field => $entity) {
+                if (isset($this->attr[$field])) {
+                    $data[$field] = $this->attr[$field];
+                    $this->fields[$field]['value'] = $this->attr[$field];
+                } else if (isset($entity['default'])) {
+                    $data[$field] = $entity['default'];
+                    $this->attr[$field] = $entity['default'];
+                }
+            }
+            $this->pk = $this->insert($data);
+            $this->attr['id'] = $this->pk;
+            return $this->pk;
         }
 
         return null;
@@ -241,12 +238,13 @@ class Model
         return $this->delete(['id' => $this->pk]);
     }
 
-    public function map($data)
+    public function getModel($data)
     {
         $class = get_class($this);
         $model = new $class();
         $model->table = $this->table;
-        foreach ($this->fields as $field => $entity) {
+        foreach ($data as $field => $entity) {
+            if (!isset($data[$entity['column']])) continue;
             $model->attr[$field] = $data[$entity['column']];
             $model->fields[$field]['value'] = $data[$entity['column']];
             if (isset($entity['pk'])) {
@@ -255,6 +253,17 @@ class Model
         }
 
         return $model;
+    }
+
+    public function fetch($data)
+    {
+        $result = [];
+        foreach ($this->fields as $field => $entity) {
+            $column = $entity['column'];
+            if (!isset($data[$column])) continue;
+            $result[$field] = $data[$column];
+        }
+        return $result;
     }
 
 
@@ -303,6 +312,28 @@ class Model
     public function toArray()
     {
         return is_array($this->attr) ? $this->attr : [];
+    }
+
+    public function offsetSet($offset, $value)
+    {
+        if (isset($this->fields[$offset]))
+            $this->attr[$offset] = $value;
+    }
+
+
+    public function offsetExists($offset)
+    {
+        return isset($this->fields[$offset]);
+    }
+
+    public function offsetUnset($offset)
+    {
+        unset($this->attr[$offset]);
+    }
+
+    public function offsetGet($offset)
+    {
+        return $this->attr[$offset] ?? $this->attr[$offset] ?? null;
     }
 }
 
