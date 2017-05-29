@@ -2,12 +2,14 @@
 
 /**
  * @license   https://github.com/Init/licese.md
- * @copyright Copyright (c) 2016
+ * @copyright Copyright (c) 2017
  * @author    : bugbear
- * @date      : 2016/11/30
+ * @date      : 2017/05/30
  * @time      : 上午10:54
  */
 namespace Mews;
+
+use PHPUnit\Framework\Exception;
 
 class Model implements \ArrayAccess
 {
@@ -59,6 +61,7 @@ class Model implements \ArrayAccess
     public function init(array $db)
     {
         $this->db = DB::create($db);
+        $this->builder->connect($this->db);
     }
 
     public function builder()
@@ -79,6 +82,16 @@ class Model implements \ArrayAccess
     {
         $str = json_encode($this->config) . strtolower($this->sql) . $this->flag;
         return md5($str);
+    }
+
+    public function count($where)
+    {
+        $where = $this->revertFields($where);
+        $result = $this->builder
+            ->field(['count(*) as count'])
+            ->where($where)
+            ->select();
+        return $result[0]['count'] ?? 0;
     }
 
 
@@ -121,11 +134,10 @@ class Model implements \ArrayAccess
     public function findOne($where)
     {
         $where = $this->revertFields($where);
-        list($this->lastSql, $value) = $this->builder
+        $result = $this->builder
             ->where($where)
             ->limit(1)
             ->select();
-        $result = $this->db->query($this->lastSql, $value);
         if (empty($result)) {
             return null;
         }
@@ -154,8 +166,7 @@ class Model implements \ArrayAccess
             }
         }
 
-        list($this->lastSql, $value) = $builder->select();
-        $result = $this->db->query($this->lastSql, $value);
+        $result = $builder->select();
         if (!$result) return [];
         $res = [];
         foreach ($result as $data) {
@@ -174,12 +185,13 @@ class Model implements \ArrayAccess
                 $builder = $builder->$method($option);
             }
         }
-        list($this->lastSql, $value) = $builder->select();
-        $result = $this->db->query($this->lastSql, $value);
-        if (!$result) return null;
+        $result = $builder->select();
+        if (!$result) {
+            return [];
+        }
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->map($data);
+            $res[] = $this->fetch($data);
         }
 
         return $res;
@@ -230,6 +242,13 @@ class Model implements \ArrayAccess
         }
 
         return null;
+    }
+
+    public function increment($field, $value) {
+        if ($this->fields[$field]['type'] !== 'int') {
+            throw new \Exception('increment column must be integer');
+        }
+        $this->attr[$field] = $this->attr[$field] . ' + ' . $value;
     }
 
     public function remove()
