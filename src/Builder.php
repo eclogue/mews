@@ -50,7 +50,6 @@ class Builder
     {
         list($sql, $values) = $this->parser->build($condition);
         $this->sql['where'] = $sql;
-        var_dump('~~~~~~~~~~~~', $values);
         foreach ($values as $key => $value) {
             $this->values['where'][] = $value;
         }

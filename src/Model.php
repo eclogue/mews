@@ -9,7 +9,6 @@
  */
 namespace Mews;
 
-use PHPUnit\Framework\Exception;
 
 class Model implements \ArrayAccess
 {
@@ -21,7 +20,7 @@ class Model implements \ArrayAccess
 
     protected $flag = '';
 
-    protected $result = [];
+    public $result = [];
 
     protected $debug = true;
 
@@ -37,7 +36,7 @@ class Model implements \ArrayAccess
 
     protected $builder;
 
-    public $lastSql = '';
+    protected $lastSql = '';
 
 
     public function __construct($cache = null)
@@ -101,6 +100,9 @@ class Model implements \ArrayAccess
         $this->cache->set($key, $value);
     }
 
+    public function pure() {
+
+    }
 
     public function update($data, $where)
     {
@@ -143,7 +145,7 @@ class Model implements \ArrayAccess
         }
         $result = array_pop($result);
 
-        return $this->fetch($result);
+        return $this->getModel($result);
     }
 
     public function findByIndex($index, $value)
@@ -170,7 +172,7 @@ class Model implements \ArrayAccess
         if (!$result) return [];
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->fetch($data);
+            $res[] = $this->getModel($data);
         }
 
         return $res;
@@ -191,7 +193,7 @@ class Model implements \ArrayAccess
         }
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->fetch($data);
+            $res[] = $this->getModel($data);
         }
 
         return $res;
@@ -262,7 +264,8 @@ class Model implements \ArrayAccess
         $class = get_class($this);
         $model = new $class();
         $model->table = $this->table;
-        foreach ($data as $field => $entity) {
+        $model->result = $this->convert($data);
+        foreach ($this->fields as $field => $entity) {
             if (!isset($data[$entity['column']])) continue;
             $model->attr[$field] = $data[$entity['column']];
             $model->fields[$field]['value'] = $data[$entity['column']];
@@ -274,7 +277,7 @@ class Model implements \ArrayAccess
         return $model;
     }
 
-    public function fetch($data)
+    public function convert($data)
     {
         $result = [];
         foreach ($this->fields as $field => $entity) {
@@ -328,9 +331,18 @@ class Model implements \ArrayAccess
         return $res;
     }
 
-    public function toArray()
+    public function toArray($object)
     {
-        return is_array($this->attr) ? $this->attr : [];
+        $result = [];
+        if (is_array($object)) {
+            foreach ($object as $model) {
+                $result[] = $model->result;
+            }
+        } else {
+            $result = $object->result;
+        }
+
+        return $result;
     }
 
     public function offsetSet($offset, $value)
@@ -342,7 +354,7 @@ class Model implements \ArrayAccess
 
     public function offsetExists($offset)
     {
-        return isset($this->fields[$offset]);
+        return isset($this->attr[$offset]);
     }
 
     public function offsetUnset($offset)

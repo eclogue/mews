@@ -67,8 +67,8 @@ $user->builder()
 
 ```
 
-###
-get query sql:
-`var_dump($user->lastSql);`
+### feature
+
+add mysqlnd_ms and connect pool
 
 

@@ -15,19 +15,22 @@ $config = [
     'host' => '127.0.0.1',
     'user' => 'root',
     'password' => '123123',
-    'database' => 'crab',
+    'database' => 'knight',
 ];
 //$db = new DB();
 //$db->add($config);
 $model = new Model();
-$model->table('user');
+$model->table('users');
 $condition = [
-    'id' => [ '$gt' => 1],
+    'id' => ['$in' => [1,2]],
+    'username' => ['$eq' => 'mulberry'],
+    '$or' => [
+        'id' => ['$gt' => 5]
+    ],
 ];
 $model->init($config);
-$result = $model->find($condition);
-var_dump($result->attr);
-$user = $model->findById(11);
-var_dump($user->attr);
+$result = $model->builder()->where($condition)->select();
+//$user = $model->findById(11);
+//var_dump($user);
 
 
