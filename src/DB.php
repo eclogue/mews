@@ -29,9 +29,10 @@ class DB
         }
     }
 
-    public static function create($config, $type = 'single') {
+    public static function create($config, $type = 'single')
+    {
         $dsn = self::dsn($config);
-        if(!isset(self::$instance[$dsn])) {
+        if (!isset(self::$instance[$dsn])) {
             self::$instance[$dsn] = new DB();
             self::$instance[$dsn]->add($config);
             self::$instance[$dsn]->connect($type);
@@ -59,7 +60,7 @@ class DB
                 $dsn,
                 $connection['user'],
                 $connection['password']
-//                    $connection['options']
+//                $connection['options']
             );
             if ($type === 'master') {
                 $this->linkw = $link[$dsn];
@@ -97,7 +98,7 @@ class DB
 
     public function query($sql, $value = null)
     {
-        if($this->debug) {
+        if ($this->debug) {
             echo "debug sql: " . $sql . " #args:" . json_encode($value);
         }
         $query = $this->linkr->prepare($sql);
@@ -107,8 +108,8 @@ class DB
         } else {
             $res = $query->execute();
         }
-        if($query->errorCode() !== '00000') { // @todo
-             var_dump($query->errorInfo(), $query->errorCode());
+        if ($query->errorCode() !== '00000') { // @todo
+            var_dump($query->errorInfo(), $query->errorCode());
         }
         if (!$res) return null;
 
@@ -117,7 +118,7 @@ class DB
 
     public function execute($sql, $value = null)
     {
-        if($this->debug) {
+        if ($this->debug) {
             echo "debug sql: " . $sql . " #args:" . json_encode($value);
         }
         $query = $this->linkr->prepare($sql);
@@ -127,11 +128,11 @@ class DB
         } else {
             $res = $query->execute();
         }
-        if($query->errorCode() !== '00000') {
+        if ($query->errorCode() !== '00000') {
             throw new \Exception('Execute Sql Exception:' . implode('# ', $query->errorInfo()));
         }
         preg_match('#INSERT INTO#', $sql, $match);
-        if($match) {
+        if ($match) {
             return $this->linkw->lastInsertId();
         }
         return $res;

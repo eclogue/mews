@@ -10,6 +10,8 @@
 namespace Mews;
 
 
+use SebastianBergmann\CodeCoverage\Report\PHP;
+
 class Model implements \ArrayAccess
 {
     protected $db;
@@ -24,9 +26,9 @@ class Model implements \ArrayAccess
 
     protected $debug = true;
 
-    protected $attr = [];
+    public $attr = [];
 
-    protected $pk;
+    protected $pk = [];
 
 
     protected $fields = [
@@ -65,7 +67,10 @@ class Model implements \ArrayAccess
 
     public function builder()
     {
-        return $this->builder;
+        $builder = new Builder();
+        $builder->table($this->table);
+        $builder->connect($this->db);
+        return $builder;
     }
 
 //
@@ -100,16 +105,20 @@ class Model implements \ArrayAccess
         $this->cache->set($key, $value);
     }
 
-    public function pure() {
 
-    }
-
-    public function update($data, $where)
+    public function update($where = [], $update = [])
     {
-        $data = $this->revertFields($data);
-        if ($this->debug) {
-            $this->db->debug();
+        if (!empty($this->pk)) {
+            $where = array_merge($this->pk, $where);
         }
+        $changed = $this->getChange();
+        $changed = array_merge($changed, $update);
+        if (empty($changed)) {
+            return null;
+        }
+        $mapping = $this->convert($changed);
+        $res = $this->builder()->where($where)->update($mapping);
+        $this->result = array_merge($this->result, $changed);
         $this->before();
     }
 
@@ -121,16 +130,17 @@ class Model implements \ArrayAccess
         return $this->result;
     }
 
-    public function delete($where)
+    public function delete($where = '')
     {
+        if (!empty($this->pk)) {
+            $where = $this->pk;
+        }
         $where = $this->revertFields($where);
-        list($this->lastSql, $value) = $this->builder
+        list($this->lastSql, $value) = $this->builder()
             ->where($where)
             ->delete();
-        $this->result = $this->db->execute($this->lastSql, $value);
-        $this->after();
-
-        return $this->result;
+        $this->db->execute($this->lastSql, $value);
+        return $this->after();
     }
 
     public function findOne($where)
@@ -213,21 +223,14 @@ class Model implements \ArrayAccess
             return null;
         }
         $data = [];
-        if ($this->pk) {
-            $pkName = '';
+        if (!empty($this->pk)) {
             foreach ($this->fields as $field => $entity) {
                 if (isset($this->attr[$field]) && $entity['value'] !== $this->attr[$field]) {
                     $data[$field] = $this->attr[$field];
                     $this->fields[$field]['value'] = $this->attr[$field];
                 }
-                if (isset($entity['pk'])) {
-                    $pkName = $entity['column'];
-                }
             }
-            $condition = [
-                $pkName => $this->pk,
-            ];
-            $this->update($data, $condition);
+            $this->update($data, $this->pk);
         } else {
             foreach ($this->fields as $field => $entity) {
                 if (isset($this->attr[$field])) {
@@ -246,8 +249,9 @@ class Model implements \ArrayAccess
         return null;
     }
 
-    public function increment($field, $value) {
-        if ($this->fields[$field]['type'] !== 'int') {
+    public function increment($field, $value)
+    {
+        if (!is_numeric($value)) {
             throw new \Exception('increment column must be integer');
         }
         $this->attr[$field] = $this->attr[$field] . ' + ' . $value;
@@ -265,12 +269,14 @@ class Model implements \ArrayAccess
         $model = new $class();
         $model->table = $this->table;
         $model->result = $this->convert($data);
+        $model->db = $this->db;
+        $model->builder->connect($this->db);
         foreach ($this->fields as $field => $entity) {
             if (!isset($data[$entity['column']])) continue;
             $model->attr[$field] = $data[$entity['column']];
             $model->fields[$field]['value'] = $data[$entity['column']];
             if (isset($entity['pk'])) {
-                $model->pk = $data[$entity['column']];
+                $model->pk[$field] = $data[$entity['column']];
             }
         }
 
@@ -286,6 +292,19 @@ class Model implements \ArrayAccess
             $result[$field] = $data[$column];
         }
         return $result;
+    }
+
+    public function getChange()
+    {
+        $data = [];
+        foreach ($this->fields as $field => $entity) {
+            if (isset($this->attr[$field]) && $entity['value'] != $this->attr[$field]) {
+                $data[$field] = $this->attr[$field];
+                $this->fields[$field]['value'] = $this->attr[$field];
+            }
+        }
+
+        return $data;
     }
 
 
@@ -321,6 +340,7 @@ class Model implements \ArrayAccess
 
     protected function revertFields($fields)
     {
+        if (!$fields) return [];
         $res = [];
         foreach ($fields as $field => $value) {
             if (!isset($this->fields[$field])) continue;
@@ -331,15 +351,15 @@ class Model implements \ArrayAccess
         return $res;
     }
 
-    public function toArray($object)
+    public function toArray($object = [])
     {
         $result = [];
-        if (is_array($object)) {
+        if (!empty($object)) {
             foreach ($object as $model) {
                 $result[] = $model->result;
             }
         } else {
-            $result = $object->result;
+            $result = $this->result;
         }
 
         return $result;
@@ -347,7 +367,7 @@ class Model implements \ArrayAccess
 
     public function offsetSet($offset, $value)
     {
-        if (isset($this->fields[$offset]))
+        if (isset($this->attr[$offset]))
             $this->attr[$offset] = $value;
     }
 

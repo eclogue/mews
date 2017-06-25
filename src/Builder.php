@@ -86,16 +86,6 @@ class Builder
 
     public function select()
     {
-        list($sql, $values) = $this->buildSelect();
-        $res = $this->connection->query($sql, $values);
-        $this->sql = [];
-        $this->values = [];
-        $this->fields = [];
-        return $res;
-    }
-
-    protected function buildSelect()
-    {
         $select = 'SELECT %s FROM `%s` %s';
         if (empty($this->fields)) {
             $fields = '*';
@@ -104,9 +94,21 @@ class Builder
         } else {
             $fields = $this->fields;
         }
+        list($sql, $values) = $this->toSql();
+        $sql = sprintf($select, $fields, $this->table, $sql);
+        $res = $this->connection->query($sql, $values);
+        $this->sql = [];
+        $this->values = [];
+        $this->fields = [];
+        return $res;
+    }
+
+    protected function toSql()
+    {
         $values = [];
         $sql = [];
         if (isset($this->sql['where'])) {
+            $sql[] ='WHERE';
             $sql[] = $this->sql['where'];
             if (isset($this->values['where'])) {
                 foreach ($this->values['where'] as $value) {
@@ -126,39 +128,48 @@ class Builder
         if (isset($this->sql['offset'])) {
             $sql[] = $this->sql['offset'];
         }
-        $this->sql = implode(' ', $this->sql);
-        $sql = sprintf($select, $fields, $this->table, $this->sql);
+        $sql = implode(' ', $sql);
         return [$sql, $values];
     }
 
     public function delete()
     {
-        $sql = 'DELETE FROM `%s` %s';
-        $sql = sprintf($sql, $this->table, $this->sql);
-        return $this->sql = $sql;
+        $delete = 'DELETE FROM `%s` %s';
+        list($sql, $values) = $this->toSql();
+        $sql = sprintf($delete, $this->table, $sql);
+        $res = $this->connection->query($sql, $values);
+        $this->sql = [];
+        $this->values = [];
+        $this->fields = [];
+        return $res;
     }
 
     public function update($data)
     {
         $set = '';
+        $setVal = [];
         foreach ($data as $field => $value) {
-            if (is_string($value)) {
-                $set .= '`' . $field . '`=?';
-                $this->values[] = $value;
-                continue;
-            }
             if (is_array($value)) {
                 if (isset($value['$increment'])) {
                     $set .= '`' . $field . '`=' . $field . '+' . $value;
                 } else {
                     $set .= '`' . $field . '`=?' . json_encode($value);
-                    $this->values[] = $value;
+                    $setVal[] = $value;
                 }
+            } else {
+                $set .= '`' . $field . '`=?';
+                $setVal[] = $value;
             }
         }
-        $sql = 'UPDATE `%s` SET %s %s';
-        $sql = sprintf($sql, $this->fields, $this->table, $this->sql);
-        return $this->sql = $sql;
+        list($sql, $values) = $this->toSql();
+        $values = array_merge($setVal, $values);
+        $update = 'UPDATE `%s` SET %s %s';
+        $sql = sprintf($update, $this->table, $set, $sql);
+        $res = $this->connection->query($sql, $values);
+        $this->sql = [];
+        $this->values = [];
+        $this->fields = [];
+        return $res;
     }
 
     public function insert($data)
@@ -175,8 +186,12 @@ class Builder
         $placeholder = implode(',', $placeholder);
         $sql = 'INSERT INTO `%s`(%s)VALUE(%s)';
         $sql = sprintf($sql, $this->table, $fields, $placeholder);
-
-        return [$sql, $values];
+        $this->connection->query($sql, $values);
+        $id = $this->connection->lastInsertId();
+        $this->sql = [];
+        $this->values = [];
+        $this->fields = [];
+        return $id;
     }
 
     public function wrapField($fields)

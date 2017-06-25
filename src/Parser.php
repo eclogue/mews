@@ -127,7 +127,7 @@ class Parser
         if ($inChildren) {
             $sql .= ')';
         }
-        $sql = 'WHERE(' . $sql . ')';
+        $sql = '(' . $sql . ')';
         $ret = [$sql, $this->values];
         $this->values = [];
         $this->tree = [];
