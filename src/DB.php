@@ -1,6 +1,8 @@
 <?php
 namespace Mews;
 
+use mysqli;
+
 class DB
 {
 
@@ -15,6 +17,11 @@ class DB
     private static $instance = [];
 
     public $debug = true;
+
+    public function __construct($config)
+    {
+
+    }
 
 
     public static function add($config, $type = 'single')
@@ -31,14 +38,9 @@ class DB
 
     public static function create($config, $type = 'single')
     {
-        $dsn = self::dsn($config);
-        if (!isset(self::$instance[$dsn])) {
-            self::$instance[$dsn] = new DB();
-            self::$instance[$dsn]->add($config);
-            self::$instance[$dsn]->connect($type);
-        }
-
-        return self::$instance[$dsn];
+        $self = new static();
+        $self->add($config);
+        $self->connect($type);
     }
 
 
@@ -50,27 +52,12 @@ class DB
             $index = mt_rand(0, $len - 1);
             $connection = $config[$index];
             $dsn = self::dsn($connection);
-            if (!empty(self::$links[$dsn])) {
-                $this->linkw = self::$links[$dsn]['linkw'];
-                $this->linkr = self::$links[$dsn]['linkr'];
-                return;
-            }
 
-            $link[$dsn] = new \PDO(
-                $dsn,
+            $link[$dsn] = new mysqli(
                 $connection['user'],
                 $connection['password']
 //                $connection['options']
             );
-            if ($type === 'master') {
-                $this->linkw = $link[$dsn];
-            } else if ($type === 'slave') {
-                $this->linkr = $link[$dsn];
-            } else {
-                $this->linkr = $this->linkw = $link[$dsn];
-            }
-            self::$links[$dsn]['linkw'] = $this->linkw;
-            self::$links[$dsn]['linkr'] = $this->linkr;
         } catch (\Exception $err) {
             throw new \Error('DB connect error,' . $err->getMessage());
         }
