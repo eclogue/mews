@@ -14,9 +14,9 @@ use RuntimeException;
 
 class Connection
 {
-    private $_config = [];
+    private $config = [];
 
-    private $_link;
+    private $link;
 
     public $identify = '';
 
@@ -28,7 +28,7 @@ class Connection
      */
     public function __construct(array $config)
     {
-        $this->_config = $config;
+        $this->config = $config;
         $this->identify = uniqid();
     }
 
@@ -39,21 +39,22 @@ class Connection
      */
     public function connect()
     {
-        $user = $this->_config['user'] ?? 'root';
-        $password = $this->_config['password'] ?? '';
-        $host = $this->_config['host'] ?? 'localhost';
-        $port = $this->_config['port'] ?? '3306';
-        $dbname = $this->_config['dbname'];
-        $charset = $this->_config['charset'] ?? 'utf8';
-        $this->_link = new mysqli($host, $user, $password, $dbname, $port);
-        if ($this->_link->connect_error) {
-            throw new RuntimeException('Connect Error (' . $this->_link->connect_errno . ')'
-                . $this->_link->connect_error
+        $user = $this->config['user'] ?? 'root';
+        $password = $this->config['password'] ?? '';
+        $host = $this->config['host'] ?? 'localhost';
+        $host = 'p:' . $host;
+        $port = $this->config['port'] ?? '3306';
+        $dbname = $this->config['dbname'];
+        $charset = $this->config['charset'] ?? 'utf8';
+        $this->link = new mysqli($host, $user, $password, $dbname, $port);
+        if ($this->link->connect_error) {
+            throw new RuntimeException('Connect Error (' . $this->link->connect_errno . ')'
+                . $this->link->connect_error
             );
         }
-        $this->_link->set_charset($charset);
+        $this->link->set_charset($charset);
 
-        return $this->_link;
+        return $this->link;
     }
 
     /**
@@ -63,7 +64,7 @@ class Connection
      */
     public function getError()
     {
-        return $this->_link->error;
+        return $this->link->error;
     }
 
     /**
@@ -73,14 +74,18 @@ class Connection
      */
     public function getErrorCode()
     {
-        return $this->_link->errno;
+        return $this->link->errno;
     }
 
     public function execute($sql, $values)
     {
+        echo "debug:" . $sql . "values:" . implode(',', $values) . PHP_EOL;
+        $state = $this->link->get_connection_stats();
+//        $this->close();
+        echo "debug: active connections:" . $state['active_persistent_connections'] . PHP_EOL;
         $types = str_repeat('s', count($values));
-        $stmt = $this->_link->prepare($sql);
-        $stmt->bind_param($types, $values);
+        $stmt = $this->link->prepare($sql);
+        $stmt->bind_param($types, ...$values);
         $stmt->execute();
         if ($stmt->errno) {
             throw new RuntimeException(printf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
@@ -110,6 +115,16 @@ class Connection
         $insertId = $stmt->insert_id;
         $stmt->close();
         return $insertId;
+    }
+
+    public function close()
+    {
+        $this->link->close();
+    }
+
+    public function isClose()
+    {
+        return !$this->link->thread_id && !$this->link->host_info;
     }
 
 

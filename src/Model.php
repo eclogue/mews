@@ -10,8 +10,6 @@
 namespace Mews;
 
 
-use SebastianBergmann\CodeCoverage\Report\PHP;
-
 class Model implements \ArrayAccess
 {
     protected $db;
@@ -31,22 +29,21 @@ class Model implements \ArrayAccess
     protected $pk = [];
 
 
+
     protected $fields = [
         'id' => ['column' => 'id', 'type' => 'int', 'pk' => true],
         'username' => ['column' => 'username', 'type' => 'string'],
     ];
 
-    protected $builder;
 
     protected $lastSql = '';
 
 
-    public function __construct($cache = null)
+    public function __construct(array $config, array $cache = [])
     {
-        $this->builder = new Builder();
-        $this->builder->table($this->table);
-    }
 
+        $this->db = Pool::singleton($config);
+    }
 
     public function table($table)
     {
@@ -59,16 +56,12 @@ class Model implements \ArrayAccess
         $this->cache = $cache;
     }
 
-    public function init(array $db)
-    {
-        $this->db = DB::create($db);
-        $this->builder->connect($this->db);
-    }
 
     public function builder()
     {
         $builder = new Builder();
         $builder->table($this->table);
+        $this->db->getConnection();
         $builder->connect($this->db);
         return $builder;
     }
@@ -91,7 +84,7 @@ class Model implements \ArrayAccess
     public function count($where)
     {
         $where = $this->revertFields($where);
-        $result = $this->builder
+        $result = $this->builder()
             ->field(['count(*) as count'])
             ->where($where)
             ->select();
@@ -117,7 +110,7 @@ class Model implements \ArrayAccess
             return null;
         }
         $mapping = $this->convert($changed);
-        $res = $this->builder()->where($where)->update($mapping);
+        $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->before();
     }
@@ -125,8 +118,8 @@ class Model implements \ArrayAccess
     public function insert($data)
     {
         $data = $this->revertFields($data);
-        list($this->lastSql, $value) = $this->builder->insert($data);
-        $this->result = $this->db->execute($this->lastSql, $value);
+        list($this->lastSql, $value) = $this->builder()->insert($data);
+        $this->result = $this->db->execute($this->lastSql, $value); // @todo
         return $this->result;
     }
 
@@ -139,14 +132,14 @@ class Model implements \ArrayAccess
         list($this->lastSql, $value) = $this->builder()
             ->where($where)
             ->delete();
-        $this->db->execute($this->lastSql, $value);
+        $this->db->query($this->lastSql, $value); // @todo
         return $this->after();
     }
 
     public function findOne($where)
     {
         $where = $this->revertFields($where);
-        $result = $this->builder
+        $result = $this->builder()
             ->where($where)
             ->limit(1)
             ->select();
@@ -171,7 +164,7 @@ class Model implements \ArrayAccess
     public function find($where, $options = [])
     {
         $where = $this->revertFields($where);
-        $builder = $this->builder->where($where);
+        $builder = $this->builder()->where($where);
         if (!empty($options)) {
             foreach ($options as $method => $option) {
                 $builder = $builder->$method($option);
@@ -265,12 +258,8 @@ class Model implements \ArrayAccess
 
     public function getModel($data)
     {
-        $class = get_class($this);
-        $model = new $class();
-        $model->table = $this->table;
-        $model->result = $this->convert($data);
-        $model->db = $this->db;
-        $model->builder->connect($this->db);
+        $model = clone $this;
+        $model->result = $model->convert($data);
         foreach ($this->fields as $field => $entity) {
             if (!isset($data[$entity['column']])) continue;
             $model->attr[$field] = $data[$entity['column']];
@@ -321,7 +310,7 @@ class Model implements \ArrayAccess
 
     public function __call($func, $args)
     {
-        call_user_func_array([$this->builder, $func], $args);
+        call_user_func_array([$this->builder(), $func], $args);
     }
 
     public function __get($key)

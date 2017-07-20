@@ -16,52 +16,73 @@ class Pool
 {
 
 
-    private $_freeConnections = [];
+    private $freeConnections;
 
-    private $_touchConnections = [];
+    private $enqueueConnections;
 
-    private $_closed = true;
+    private $closed = true;
 
-    private $_config = [];
+    private $config = [];
 
     protected $maxConnections = -1;
 
-    private $_lock = [];
+    private $lock = [];
 
+    private static $instance = null;
 
 
     public function __construct($config)
     {
-        $this->_config = $config;
-        $this->_freeConnections = new SplQueue();
-//        $this->_touchConnections = new SplQueue();
+        $this->config = $config;
+        $this->freeConnections = new SplQueue();
+        $this->enqueueConnections = new SplQueue();
+    }
+
+    public static function singleton($config)
+    {
+        if (!self::$instance) {
+            self::$instance = new self($config);
+        }
+
+        return self::$instance;
     }
 
     public function getConnection()
     {
-        echo '**********' . count(count($this->_touchConnections)) . '&&' . count($this->_freeConnections) . "**************\n";
-        if (!$this->_closed) {
+        if (!$this->closed) {
             throw new RuntimeException('Connection pool is closed');
         }
 
-        $active = count($this->_touchConnections) + count($this->_freeConnections);
+        $active = count($this->enqueueConnections) + count($this->freeConnections);
         if ($this->maxConnections !== -1 && $active >= $this->maxConnections) {
             throw new RuntimeException('Connection pool ...');
         }
-        if (count($this->_freeConnections)) {
-            $connection = $this->_freeConnections->dequeue();
-            $this->_touchConnections[$connection->identify] = $connection;
+        $connection = null;
+        if (!$this->freeConnections->isEmpty()) {
+            while ($this->freeConnections->isEmpty()) {
+                $connection = $this->freeConnections->dequeue();
+                if ($connection->isClose()) {
+                    continue;
+                }
+                $this->enqueueConnections->enqueue($connection);
+            }
+
         }
 
-        return $this->acquireConnection();
+        if (!$connection) {
+            $this->acquireConnection();
+        }
+
+        return $this;
     }
 
 
     private function acquireConnection()
     {
-        $connection = new Connection($this->_config);
+        $connection = new Connection($this->config);
         $connection->connect();
-        $this->_touchConnections[$connection->identify] = $connection;
+        $this->enqueueConnections->enqueue($connection);
+
         return $connection;
     }
 
@@ -78,21 +99,27 @@ class Pool
 
     public function query($sql, $value)
     {
-        $connection = $this->getConnection();
+        echo "*********" . $this->freeConnections->count() . "===" . $this->enqueueConnections->count() . "*********\n";
+        if ($this->enqueueConnections->isEmpty()) {
+            $this->getConnection();
+        }
+        $connection = $this->enqueueConnections->dequeue();
+
         $result = $connection->query($sql, $value);
         $errorCode = $connection->getErrorCode();
         if ($errorCode) {
             throw new RuntimeException('Connection error(%d):%s', $errorCode, $connection->getError());
         }
-        $this->_freeConnections->enqueue($connection);
-        unset($this->_touchConnections[$connection->identify]);
+        $connection->close();
+        $this->freeConnections->enqueue($connection);
         return $result;
     }
 
     private function reconnect($connection)
     {
-        
+
     }
+
 
     public static function transaction()
     {

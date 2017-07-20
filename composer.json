@@ -13,12 +13,16 @@
     "autoload": {
         "psr-4": {"Mews\\": "src/"}
     },
-    "repositories": [
-        {
+    "repositories": {
+        "0": {
             "type": "vcs",
             "url": "https://github.com/racecourse/mews"
+        },
+        "packagist": {
+            "type": "composer",
+            "url": "https://packagist.phpcomposer.com"
         }
-    ],
+    },
     "require": {
         "php": ">=5.5.0"
     },
