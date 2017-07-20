@@ -38,25 +38,42 @@ class Model implements \ArrayAccess
 
     protected $lastSql = '';
 
-
+    /**
+     * Model constructor.
+     *
+     * @param array $config
+     * @param array $cache
+     */
     public function __construct(array $config, array $cache = [])
     {
 
         $this->db = Pool::singleton($config);
     }
 
+    /**
+     * set table
+     *
+     * @param string $table
+     */
     public function table($table)
     {
         $this->table = $table;
         $this->builder->table($this->table);
     }
 
+    /**
+     * @param $cache
+     */
     public function setCache($cache)
     {
         $this->cache = $cache;
     }
 
-
+    /**
+     * get builder
+     *
+     * @return Builder
+     */
     public function builder()
     {
         $builder = new Builder();
@@ -75,13 +92,22 @@ class Model implements \ArrayAccess
 //        return $this;
 //    }
 
+    /**
+     * @return string
+     */
     public function cacheKey()
     {
         $str = json_encode($this->config) . strtolower($this->sql) . $this->flag;
         return md5($str);
     }
 
-    public function count($where)
+    /**
+     * get count by condition
+     *
+     * @param array $where
+     * @return int
+     */
+    public function count(array $where)
     {
         $where = $this->revertFields($where);
         $result = $this->builder()
@@ -91,14 +117,22 @@ class Model implements \ArrayAccess
         return $result[0]['count'] ?? 0;
     }
 
-
+    /**
+     * @param $value
+     */
     public function register($value)
     {
         $key = $this->table . '#' . $this->flag;
         $this->cache->set($key, $value);
     }
 
-
+    /**
+     * update model
+     *
+     * @param array $where
+     * @param array $update
+     * @return null
+     */
     public function update($where = [], $update = [])
     {
         if (!empty($this->pk)) {
@@ -115,7 +149,13 @@ class Model implements \ArrayAccess
         $this->before();
     }
 
-    public function insert($data)
+    /**
+     * Insert new record
+     *
+     * @param array $data
+     * @return array
+     */
+    public function insert(array $data)
     {
         $data = $this->revertFields($data);
         list($this->lastSql, $value) = $this->builder()->insert($data);
@@ -123,6 +163,11 @@ class Model implements \ArrayAccess
         return $this->result;
     }
 
+    /**
+     * Delete by where
+     *
+     * @param string $where
+     */
     public function delete($where = '')
     {
         if (!empty($this->pk)) {
@@ -136,7 +181,13 @@ class Model implements \ArrayAccess
         return $this->after();
     }
 
-    public function findOne($where)
+    /**
+     * Select single record
+     *
+     * @param $where
+     * @return Model|null
+     */
+    public function findOne(array $where)
     {
         $where = $this->revertFields($where);
         $result = $this->builder()
@@ -151,17 +202,37 @@ class Model implements \ArrayAccess
         return $this->getModel($result);
     }
 
+    /**
+     * Get record by index
+     *
+     * @param string $index
+     * @param string $value
+     * @return Model|null
+     */
     public function findByIndex($index, $value)
     {
         return $this->findOne([$index => $value]);
     }
 
+    /**
+     * Select by id
+     *
+     * @param integer $id
+     * @return Model|null
+     */
     public function findById($id)
     {
         return $this->findOne(['id' => $id]);
     }
 
-    public function find($where, $options = [])
+    /**
+     * Select records
+     *
+     * @param array $where
+     * @param array $options
+     * @return array
+     */
+    public function find(array $where, $options = [])
     {
         $where = $this->revertFields($where);
         $builder = $this->builder()->where($where);
@@ -181,6 +252,12 @@ class Model implements \ArrayAccess
         return $res;
     }
 
+    /**
+     * Select all with condition
+     *
+     * @param array $options
+     * @return array
+     */
     public function findAll($options = [])
     {
         $builder = $this->builder();
@@ -202,6 +279,12 @@ class Model implements \ArrayAccess
         return $res;
     }
 
+    /**
+     * Wrap findById by ids
+     *
+     * @param $ids
+     * @throws \Exception
+     */
     public function findByIds($ids)
     {
         if (!is_array($ids)) {
@@ -210,6 +293,11 @@ class Model implements \ArrayAccess
         $this->find(['id' => ['$in' => $ids]]);
     }
 
+    /**
+     * Store value
+     *
+     * @return array|null
+     */
     public function save()
     {
         if (empty($this->attr)) {
@@ -256,6 +344,12 @@ class Model implements \ArrayAccess
         return $this->delete(['id' => $this->pk]);
     }
 
+    /**
+     * Get Model instance
+     *
+     * @param $data
+     * @return Model
+     */
     public function getModel($data)
     {
         $model = clone $this;
@@ -272,7 +366,13 @@ class Model implements \ArrayAccess
         return $model;
     }
 
-    public function convert($data)
+    /**
+     *  convert data
+     *
+     * @param array $data
+     * @return array
+     */
+    public function convert(array $data)
     {
         $result = [];
         foreach ($this->fields as $field => $entity) {
@@ -283,6 +383,11 @@ class Model implements \ArrayAccess
         return $result;
     }
 
+    /**
+     * check change before update
+     *
+     * @return array
+     */
     public function getChange()
     {
         $data = [];
