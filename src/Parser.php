@@ -135,8 +135,7 @@ class Parser
         return $ret;
     }
 
-    private
-    function parseFieldNode($node)
+    private function parseFieldNode($node)
     {
         $string = '';
         $filed = '`' . $node['name'] . '`';
@@ -164,21 +163,18 @@ class Parser
 //        return rtrim($string, ' ' . $node['connector']);
     }
 
-    private
-    function parseLogicalNode($node)
+    private function parseLogicalNode($node)
     {
         $string = ' ' . $node['name'] . ' ';
         return $string;
     }
 
-    protected
-    function sqlFunction($name)
+    protected function sqlFunction($name)
     {
         return strtoupper($name) . ' (?) ';
     }
 
-    protected
-    function increment($field, $value)
+    protected function increment($field, $value)
     {
         if (!is_numeric($value)) {
             throw new Exception('mews increment value must be number');

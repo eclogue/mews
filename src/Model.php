@@ -401,13 +401,15 @@ class Model implements \ArrayAccess
         return $data;
     }
 
-
-    public function before()
+    /**
+     * before hook
+     */
+    protected function before()
     {
 
     }
 
-    public function after()
+    protected function after()
     {
 
     }
@@ -418,6 +420,12 @@ class Model implements \ArrayAccess
         call_user_func_array([$this->builder(), $func], $args);
     }
 
+    /**
+     * Get attribute
+     *
+     * @param string $key
+     * @return mixed|null
+     */
     public function __get($key)
     {
         if (isset($this->attr[$key])) {
@@ -426,6 +434,12 @@ class Model implements \ArrayAccess
         return null;
     }
 
+    /**
+     * Set attribute
+     *
+     * @param string $key
+     * @param mixed $value
+     */
     public function __set($key, $value)
     {
         if (isset($this->fields[$key]))
