@@ -58,9 +58,9 @@ $user->builder()
 ```
 
 ### Feature
- - ~~add connection pool~~
- - add mysqlnd_ms
- - add cache
- - add cluster connection pool
- - add connection pool transaction
+ -  connection pool
+ - ~~add mysqlnd_ms~~
+ - ~~cache~~
+ - ~~cluster connection pool~~
+ - ~~connection pool transaction~~
 

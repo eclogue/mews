@@ -9,24 +9,33 @@
  */
 namespace Mews;
 
+use InvalidArgumentException;
 
 class Model implements \ArrayAccess
 {
-    protected $db;
+    protected $pool;
 
     protected $cache = null;
 
-    protected $table = '';
 
     protected $flag = '';
 
-    public $result = [];
 
     protected $debug = true;
 
-    public $attr = [];
 
     protected $pk = [];
+
+    private $config = [];
+
+    private $transactionId = '';
+
+
+    public $attr = [];
+
+    public $result = [];
+
+    protected $table = '';
 
 
 
@@ -46,8 +55,8 @@ class Model implements \ArrayAccess
      */
     public function __construct(array $config, array $cache = [])
     {
-
-        $this->db = Pool::singleton($config);
+        $this->config = $config;
+        $this->pool = Pool::singleton($config);
     }
 
     /**
@@ -55,10 +64,14 @@ class Model implements \ArrayAccess
      *
      * @param string $table
      */
-    public function table($table)
+    public function setTable($table)
     {
         $this->table = $table;
-        $this->builder->table($this->table);
+    }
+
+    public function getTable()
+    {
+        return $this->table;
     }
 
     /**
@@ -76,11 +89,19 @@ class Model implements \ArrayAccess
      */
     public function builder()
     {
-        $builder = new Builder();
-        $builder->table($this->table);
-        $this->db->getConnection();
-        $builder->connect($this->db);
+        $connection = $this->getConnection();
+        $builder = new Builder($connection); // 如果
+
         return $builder;
+    }
+
+    private function getConnection()
+    {
+        if ($this->transactionId) {
+            return $this->pool->getConnection($this->transactionId);
+        }
+
+        return $this->pool;
     }
 
 //
@@ -159,7 +180,7 @@ class Model implements \ArrayAccess
     {
         $data = $this->revertFields($data);
         list($this->lastSql, $value) = $this->builder()->insert($data);
-        $this->result = $this->db->execute($this->lastSql, $value); // @todo
+        $stmt = $this->db->execute($this->lastSql, $value); // @todo
         return $this->result;
     }
 
@@ -177,7 +198,6 @@ class Model implements \ArrayAccess
         list($this->lastSql, $value) = $this->builder()
             ->where($where)
             ->delete();
-        $this->db->query($this->lastSql, $value); // @todo
         return $this->after();
     }
 
@@ -336,6 +356,28 @@ class Model implements \ArrayAccess
             throw new \Exception('increment column must be integer');
         }
         $this->attr[$field] = $this->attr[$field] . ' + ' . $value;
+    }
+
+    public function query($sql, $value = [])
+    {
+        return $this->pool->query($sql, $value);
+    }
+
+    public function withTransaction($transactionId)
+    {
+        $this->connection = (Pool::singleton($this->config))->getConnection($transactionId);
+        return $this;
+    }
+
+    public function startTransaction()
+    {
+        $this->connection->transaction();
+        return $this->connection->identify;
+    }
+
+    public function commit()
+    {
+
     }
 
     public function remove()

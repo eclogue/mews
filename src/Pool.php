@@ -26,7 +26,7 @@ class Pool
 
     protected $maxConnections = -1;
 
-    private $lock = [];
+    private $lockConnections = [];
 
     private static $instance = null;
 
@@ -34,8 +34,8 @@ class Pool
     public function __construct($config)
     {
         $this->config = $config;
-        $this->freeConnections = new SplQueue();
-        $this->enqueueConnections = new SplQueue();
+        $this->freeConnections = [];
+        $this->enqueueConnections = [];
     }
 
     public static function singleton($config)
@@ -47,96 +47,117 @@ class Pool
         return self::$instance;
     }
 
-    public function getConnection()
+    public function getConnection($uid = null)
     {
         if (!$this->closed) {
             throw new RuntimeException('Connection pool is closed');
         }
 
-        $active = count($this->enqueueConnections) + count($this->freeConnections);
+        $active = count($this->enqueueConnections) + count($this->freeConnections)
+            + count($this->lockConnections);
         if ($this->maxConnections !== -1 && $active >= $this->maxConnections) {
-            throw new RuntimeException('Connection pool ...');
+            throw new RuntimeException('Connection pool ...'); // @fixme
         }
         $connection = null;
-        if (!$this->freeConnections->isEmpty()) {
-            while ($this->freeConnections->isEmpty()) {
-                $connection = $this->freeConnections->dequeue();
+        if ($uid) {
+            if (!isset($this->lockConnections[$uid])) {
+                throw new RuntimeException('Connection not found by identify:' . $uid);
+            }
+            return $this->lockConnections[$uid];
+        }
+        if (!empty($this->freeConnections)) {
+            foreach ($this->freeConnections as $identify => $connection) {
                 if ($connection->isClose()) {
                     continue;
                 }
-                $this->enqueueConnections->enqueue($connection);
+                $this->enqueueConnections[$identify] = $connection;
             }
-
         }
 
         if (!$connection) {
-            $this->acquireConnection();
+            $connection = $this->acquireConnection();
         }
 
-        return $this;
+        return $connection;
     }
 
 
     private function acquireConnection()
     {
         $connection = new Connection($this->config);
-        $connection->connect();
-        $this->enqueueConnections->enqueue($connection);
+        $this->enqueueConnections[$connection->identify] = $connection;
 
         return $connection;
     }
 
     public function removeConnection($connection)
     {
-
+        $identify = $connection->identify;
+        if (isset($this->freeConnections[$identify])) {
+            unset($this->freeConnections[$identify]);
+        }
+        if ($this->freeConnections[$identify]) {
+            unset($this->freeConnections[$identify]);
+        }
     }
 
 
-    public function releaseConnection()
+    public function releaseConnection($connection)
     {
-
+//        if (!isset($this->lockConnections[$identify])) {
+//            return null;
+//        }
+//
+//        $connection = $this->lockConnections[$identify];
+//        unset($this->lockConnections[$identify]);
+//        $this->freeConnections[$identify] = $connection;
+        return true;
     }
 
     public function query($sql, $value)
     {
-        echo "*********" . $this->freeConnections->count() . "===" . $this->enqueueConnections->count() . "*********\n";
-        if ($this->enqueueConnections->isEmpty()) {
+        echo "*********" . count($this->freeConnections) . "===" . count($this->enqueueConnections) . "*********\n";
+        if (empty($this->enqueueConnections)) {
             $this->getConnection();
         }
-        $connection = $this->enqueueConnections->dequeue();
-
+        $connection = array_pop($this->enqueueConnections);
+        if ($connection->isClose()) {
+            $this->reconnect($connection);
+        }
         $result = $connection->query($sql, $value);
         $errorCode = $connection->getErrorCode();
         if ($errorCode) {
             throw new RuntimeException('Connection error(%d):%s', $errorCode, $connection->getError());
         }
-        $connection->close();
-        $this->freeConnections->enqueue($connection);
+        $this->freeConnections[$connection->identify] = $connection;
+
         return $result;
     }
 
-    private function reconnect($connection)
+    private function reconnect(Connection $connection)
+    {
+        return $connection->connect($this->config);
+    }
+
+
+    public function transaction()
+    {
+        $connection = $this->getConnection();
+        $connection->beginTransaction();
+        return $connection;
+    }
+
+    public function commit()
     {
 
     }
 
-
-    public static function transaction()
-    {
-        // @todo 产生一个 lockId 并返回，其他 model 需根据这个 lockId 设置 connection
-    }
-
-    public static function commit()
+    public function rollback()
     {
 
     }
 
-    public static function rollback()
-    {
-
-    }
-
-    public static function getLockId()
+    public function getLockId()
     {
 
     }

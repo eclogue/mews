@@ -20,6 +20,11 @@ class Connection
 
     public $identify = '';
 
+    public $xa = false;
+
+    public $affectedRows = 0;
+
+
 
     /**
      * Connection constructor.
@@ -30,6 +35,7 @@ class Connection
     {
         $this->config = $config;
         $this->identify = uniqid();
+        $this->connect($config);
     }
 
     /**
@@ -37,15 +43,15 @@ class Connection
      *
      * @return mysqli
      */
-    public function connect()
+    public function connect($config)
     {
-        $user = $this->config['user'] ?? 'root';
-        $password = $this->config['password'] ?? '';
-        $host = $this->config['host'] ?? 'localhost';
+        $user = $config['user'] ?? 'root';
+        $password = $config['password'] ?? '';
+        $host = $config['host'] ?? 'localhost';
         $host = 'p:' . $host;
-        $port = $this->config['port'] ?? '3306';
-        $dbname = $this->config['dbname'];
-        $charset = $this->config['charset'] ?? 'utf8';
+        $port = $config['port'] ?? '3306';
+        $dbname = $config['dbname'];
+        $charset = $config['charset'] ?? 'utf8';
         $this->link = new mysqli($host, $user, $password, $dbname, $port);
         if ($this->link->connect_error) {
             throw new RuntimeException('Connect Error (' . $this->link->connect_errno . ')'
@@ -80,9 +86,8 @@ class Connection
     public function execute($sql, $values)
     {
         echo "debug:" . $sql . "values:" . implode(',', $values) . PHP_EOL;
-        $state = $this->link->get_connection_stats();
-//        $this->close();
-        echo "debug: active connections:" . $state['active_persistent_connections'] . PHP_EOL;
+//        $state = $this->link->get_connection_stats();
+//        echo "debug: active connections:" . $state['active_persistent_connections'] . PHP_EOL;
         $types = str_repeat('s', count($values));
         $stmt = $this->link->prepare($sql);
         $stmt->bind_param($types, ...$values);
@@ -90,31 +95,49 @@ class Connection
         if ($stmt->errno) {
             throw new RuntimeException(printf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
         }
+        $this->affectedRows = $stmt->affected_rows;
+
         return $stmt;
     }
 
     public function query($sql, $values)
     {
+        $sql = ltrim($sql);
         $stmt = $this->execute($sql, $values);
-        $result = $stmt->get_result();
-        $ret = [];
-        while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-            $ret[] = $row;
+        $pattern = '#^(insert|update|replace|select|delete)#i';
+        preg_match($pattern, $sql, $match);
+        if (!count($match)) {
+            return $stmt;
+        }
+        $sqlType = strtoupper($match[0]);
+        if ($sqlType === 'INSERT') {
+            return $this->insert($sql, $values);
+        } else if ($sqlType === 'SELECT') {
+            $result = $stmt->get_result();
+            $ret = [];
+            while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
+                $ret[] = $row;
+            }
+            $stmt->free_result();
+            $stmt->close();
+
+            return $ret;
         }
 
-        echo '--------------------->' . PHP_EOL;
-        var_dump($ret);
-//        $stmt->free_result();
-        $stmt->close();
-
-        return $ret;
+        return $stmt;
     }
+
 
     public function insert($sql, $values) {
         $stmt = $this->execute($sql, $values);
         $insertId = $stmt->insert_id;
         $stmt->close();
         return $insertId;
+    }
+
+    private function release()
+    {
+
     }
 
     public function close()
@@ -132,4 +155,23 @@ class Connection
     {
 
     }
+
+
+//    public function transaction()
+//    {
+//        $this->xa = true;
+//        $this->link->query('XA START ' . $this->identify);
+//    }
+//
+//    public function commit()
+//    {
+//        $this->xa = false;
+//        $this->link->query('XA COMMIT ' . $this->identify);
+//    }
+//
+//    public function rollback()
+//    {
+//        $this->xa = false;
+//        $this->link->query('XA ROLLBACK ' . $this->identify);
+//    }
 }

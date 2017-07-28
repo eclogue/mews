@@ -16,7 +16,7 @@ class Builder
 
     public $fields = [];
 
-    public $table = '';
+    public $tableName = '';
 
     public $values = [];
 
@@ -24,19 +24,16 @@ class Builder
 
     private $connection;
 
-    public function __construct()
+
+    public function __construct($connection)
     {
         $this->parser = new Parser();
-    }
-
-    public function connect($source)
-    {
-        $this->connection = $source;
+        $this->connection = $connection;
     }
 
     public function table($table)
     {
-        $this->table = $table;
+        $this->tableName = $table;
         return $this;
     }
 
@@ -95,11 +92,10 @@ class Builder
             $fields = $this->fields;
         }
         list($sql, $values) = $this->toSql();
-        $sql = sprintf($select, $fields, $this->table, $sql);
+        $sql = sprintf($select, $fields, $this->tableName, $sql);
         $res = $this->connection->query($sql, $values);
-        $this->sql = [];
-        $this->values = [];
-        $this->fields = [];
+        $this->free();
+
         return $res;
     }
 
@@ -136,11 +132,10 @@ class Builder
     {
         $delete = 'DELETE FROM `%s` %s';
         list($sql, $values) = $this->toSql();
-        $sql = sprintf($delete, $this->table, $sql);
+        $sql = sprintf($delete, $this->tableName, $sql);
         $res = $this->connection->query($sql, $values);
-        $this->sql = [];
-        $this->values = [];
-        $this->fields = [];
+        $this->free();
+
         return $res;
     }
 
@@ -164,11 +159,10 @@ class Builder
         list($sql, $values) = $this->toSql();
         $values = array_merge($setVal, $values);
         $update = 'UPDATE `%s` SET %s %s';
-        $sql = sprintf($update, $this->table, $set, $sql);
+        $sql = sprintf($update, $this->tableName, $set, $sql);
         $res = $this->connection->query($sql, $values);
-        $this->sql = [];
-        $this->values = [];
-        $this->fields = [];
+        $this->free();
+
         return $res;
     }
 
@@ -185,12 +179,10 @@ class Builder
         $fields = implode(',', $fields);
         $placeholder = implode(',', $placeholder);
         $sql = 'INSERT INTO `%s`(%s)VALUE(%s)';
-        $sql = sprintf($sql, $this->table, $fields, $placeholder);
-        $this->connection->query($sql, $values);
-        $id = $this->connection->lastInsertId();
-        $this->sql = [];
-        $this->values = [];
-        $this->fields = [];
+        $sql = sprintf($sql, $this->tableName, $fields, $placeholder);
+        $id = $this->connection->query($sql, $values);
+        $this->free();
+
         return $id;
     }
 
@@ -205,5 +197,12 @@ class Builder
             }
         }
         return trim(implode(',', $handled), ',');
+    }
+
+    private function free()
+    {
+        $this->sql = [];
+        $this->values = [];
+        $this->fields = [];
     }
 }
