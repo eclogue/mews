@@ -23,7 +23,7 @@ class Pool
 
     private $config = [];
 
-    protected $maxConnections = -1;
+    private $maxConnections = -1;
 
     private $lockConnections = [];
 
@@ -59,32 +59,37 @@ class Pool
         }
         $connection = null;
         if ($uid) {
-            if (!isset($this->lockConnections[$uid])) {
-                throw new RuntimeException('Miss connection:' . $uid);
+            if (isset($this->lockConnections[$uid])) {
+                return $this->lockConnections[$uid];
             }
-            return $this->lockConnections[$uid];
         }
         if (!empty($this->freeConnections)) {
-            foreach ($this->freeConnections as $identify => $connection) {
-                if ($connection->isClose()) {
+            foreach ($this->freeConnections as $identify => $conn) {
+                if ($conn->isClose()) {
+                    $this->removeConnection($conn);
                     continue;
                 }
-                $this->enqueueConnections[$identify] = $connection;
+                $connection = $conn;
+                break;
             }
         }
 
         if (!$connection) {
-            $connection = $this->acquireConnection();
+            $connection = $this->acquireConnection($uid);
         }
 
         return $connection;
     }
 
 
-    private function acquireConnection()
+    private function acquireConnection($lock = false)
     {
         $connection = new Connection($this->config);
-        $this->enqueueConnections[$connection->identify] = $connection;
+        if ($lock) {
+            $this->lockConnections[$connection->identify] = $connection;
+        } else {
+            $this->enqueueConnections[$connection->identify] = $connection;
+        }
 
         return $connection;
     }
@@ -101,15 +106,17 @@ class Pool
     }
 
 
-    public function releaseConnection($connection)
+    public function releaseConnection($identify)
     {
-//        if (!isset($this->lockConnections[$identify])) {
-//            return null;
-//        }
-//
-//        $connection = $this->lockConnections[$identify];
-//        unset($this->lockConnections[$identify]);
-//        $this->freeConnections[$identify] = $connection;
+        echo $identify . PHP_EOL;
+        if (isset($this->lockConnections[$identify])) {
+            return true;
+        }
+
+        $connection = $this->lockConnections[$identify];
+        unset($this->lockConnections[$identify]);
+        $this->freeConnections[$identify] = $connection;
+
         return true;
     }
 
@@ -139,21 +146,11 @@ class Pool
     }
 
 
-    public function transaction()
+    public function touchConnection($identify)
     {
         $connection = $this->getConnection();
         $connection->beginTransaction();
         return $connection;
-    }
-
-    public function commit()
-    {
-
-    }
-
-    public function rollback()
-    {
-
     }
 
     public function getLockId()

@@ -85,7 +85,7 @@ class Connection
 
     public function execute($sql, $values)
     {
-        echo "debug:" . $sql . "values:" . implode(',', $values) . PHP_EOL;
+        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . implode(',', $values) . PHP_EOL;
         $types = str_repeat('s', count($values));
         $stmt = $this->link->prepare($sql);
         $stmt->bind_param($types, ...$values);
@@ -151,21 +151,25 @@ class Connection
     }
 
 
-//    public function transaction()
-//    {
+    public function startTransaction()
+    {
+        $this->link->autocommit(false);
+//        $this->link->begin_transaction(MYSQLI_TRANS_START_READ_WRITE, $this->identify);
 //        $this->xa = true;
 //        $this->link->query('XA START ' . $this->identify);
-//    }
-//
-//    public function commit()
-//    {
+    }
+
+    public function commit()
+    {
+        $this->link->autocommit(true);
 //        $this->xa = false;
 //        $this->link->query('XA COMMIT ' . $this->identify);
-//    }
-//
-//    public function rollback()
-//    {
+    }
+
+    public function rollback()
+    {
+        $this->link->rollback();
 //        $this->xa = false;
 //        $this->link->query('XA ROLLBACK ' . $this->identify);
-//    }
+    }
 }

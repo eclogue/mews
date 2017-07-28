@@ -375,15 +375,26 @@ class Model implements \ArrayAccess
 
     public function startTransaction()
     {
-        $this->connection->transaction();
-        return $this->connection->identify;
+        $connection = $this->pool->getConnection(true);
+        $connection->startTransaction();
+        return $this->transactionId = $connection->identify;
     }
 
     public function commit()
     {
+        $connection = $this->getConnection();
+        $connection->commit();
 
+        $this->pool->releaseConnection($connection->identify);
     }
 
+    public function rollback()
+    {
+        $connection = $this->getConnection();
+        $connection->rollback();
+
+        $this->pool->releaseConnection($connection->identify);
+    }
     public function remove()
     {
         if (!$this->pk) return false;

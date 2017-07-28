@@ -45,20 +45,28 @@ $condition = [
     ],
 ];
 $model = new User($config);
+$transaction = $model->startTransaction();
+try {
 //$result = $model->builder()->where($condition)->select();
-$md = $model->findOne(['id' => 9]);
-$md['status'] = 2;
-$updated = $md->update();
-var_dump($updated);
-var_dump($md->toArray());
-$model->username = 'test' . rand(1, 1000);
-$model->password = '123123';
-$model->nickname = 'waterfly';
-$model->status = 0;
-$model->email = rand(1, 1000) . 'email@email.com';
-$model->created = time();
-$newInstance = $model->save();
-var_dump($newInstance);
+    $user = $model->findOne(['id' => 9]);
+    $user['status'] = 2;
+    $updated = $user->withTransaction($transaction)->update();
+//var_dump($updated);
+//var_dump($user->toArray());
+    $model->username = 'test' . rand(1, 1000);
+    $model->password = '123123';
+    $model->nickname = 'waterfly';
+    $model->status = 0;
+    $model->email = rand(1, 1000) . 'email@email.com';
+    $model->created = time();
+    $newInstance = $model->save();
+    var_dump($newInstance);
+//    throw new Exception('test');
+    $model->commit();
+} catch (Exception $e) {
+    var_dump($e);
+    $model->rollback();
+}
 $config = [
     'host' => 'localhost',
     'user' => 'root',
