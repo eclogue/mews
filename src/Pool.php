@@ -10,7 +10,6 @@
 namespace Mews;
 
 use RuntimeException;
-use SplQueue;
 
 class Pool
 {
@@ -61,7 +60,7 @@ class Pool
         $connection = null;
         if ($uid) {
             if (!isset($this->lockConnections[$uid])) {
-                throw new RuntimeException('Connection not found by identify:' . $uid);
+                throw new RuntimeException('Miss connection:' . $uid);
             }
             return $this->lockConnections[$uid];
         }

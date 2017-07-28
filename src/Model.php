@@ -31,9 +31,9 @@ class Model implements \ArrayAccess
     private $transactionId = '';
 
 
-    public $attr = [];
+    private $attr = [];
 
-    public $result = [];
+    private $result = [];
 
     protected $table = '';
 
@@ -91,6 +91,7 @@ class Model implements \ArrayAccess
     {
         $connection = $this->getConnection();
         $builder = new Builder($connection); // 如果
+        $builder->table($this->table);
 
         return $builder;
     }
@@ -152,7 +153,7 @@ class Model implements \ArrayAccess
      *
      * @param array $where
      * @param array $update
-     * @return null
+     * @return mixed
      */
     public function update($where = [], $update = [])
     {
@@ -162,26 +163,33 @@ class Model implements \ArrayAccess
         $changed = $this->getChange();
         $changed = array_merge($changed, $update);
         if (empty($changed)) {
-            return null;
+            return $this;
         }
         $mapping = $this->convert($changed);
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->before();
+
+        var_dump($this->result);
+
+        return $this->getModel($this->result);
     }
 
     /**
      * Insert new record
      *
      * @param array $data
-     * @return array
+     * @return static
      */
     public function insert(array $data)
     {
         $data = $this->revertFields($data);
-        list($this->lastSql, $value) = $this->builder()->insert($data);
-        $stmt = $this->db->execute($this->lastSql, $value); // @todo
-        return $this->result;
+        $id =  $this->builder()->insert($data);
+        if (isset($this->fields[$id])) {
+            $data['id'] = $id;
+        }
+
+        return $this->getModel($data);
     }
 
     /**
@@ -195,7 +203,7 @@ class Model implements \ArrayAccess
             $where = $this->pk;
         }
         $where = $this->revertFields($where);
-        list($this->lastSql, $value) = $this->builder()
+        $this->builder()
             ->where($where)
             ->delete();
         return $this->after();
@@ -316,7 +324,7 @@ class Model implements \ArrayAccess
     /**
      * Store value
      *
-     * @return array|null
+     * @return static|null
      */
     public function save()
     {
@@ -331,7 +339,7 @@ class Model implements \ArrayAccess
                     $this->fields[$field]['value'] = $this->attr[$field];
                 }
             }
-            $this->update($data, $this->pk);
+            return $this->update($data, $this->pk);
         } else {
             foreach ($this->fields as $field => $entity) {
                 if (isset($this->attr[$field])) {
@@ -342,12 +350,8 @@ class Model implements \ArrayAccess
                     $this->attr[$field] = $entity['default'];
                 }
             }
-            $this->pk = $this->insert($data);
-            $this->attr['id'] = $this->pk;
-            return $this->pk;
+            return $this->insert($data);
         }
-
-        return null;
     }
 
     public function increment($field, $value)
@@ -408,6 +412,7 @@ class Model implements \ArrayAccess
         return $model;
     }
 
+
     /**
      *  convert data
      *
@@ -418,6 +423,10 @@ class Model implements \ArrayAccess
     {
         $result = [];
         foreach ($this->fields as $field => $entity) {
+            if (isset($data[$field])) {
+                $result[$field] = $data[$field];
+                continue;
+            }
             $column = $entity['column'];
             if (!isset($data[$column])) continue;
             $result[$field] = $data[$column];

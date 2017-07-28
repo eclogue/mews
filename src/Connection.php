@@ -86,8 +86,6 @@ class Connection
     public function execute($sql, $values)
     {
         echo "debug:" . $sql . "values:" . implode(',', $values) . PHP_EOL;
-//        $state = $this->link->get_connection_stats();
-//        echo "debug: active connections:" . $state['active_persistent_connections'] . PHP_EOL;
         $types = str_repeat('s', count($values));
         $stmt = $this->link->prepare($sql);
         $stmt->bind_param($types, ...$values);
@@ -111,7 +109,9 @@ class Connection
         }
         $sqlType = strtoupper($match[0]);
         if ($sqlType === 'INSERT') {
-            return $this->insert($sql, $values);
+            $insertId = $stmt->insert_id;
+            $stmt->close();
+            return $insertId;
         } else if ($sqlType === 'SELECT') {
             $result = $stmt->get_result();
             $ret = [];
@@ -123,17 +123,11 @@ class Connection
 
             return $ret;
         }
-
-        return $stmt;
-    }
-
-
-    public function insert($sql, $values) {
-        $stmt = $this->execute($sql, $values);
-        $insertId = $stmt->insert_id;
         $stmt->close();
-        return $insertId;
+
+        return $this->affectedRows;
     }
+
 
     private function release()
     {

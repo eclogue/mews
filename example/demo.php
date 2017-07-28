@@ -47,12 +47,18 @@ $condition = [
 $model = new User($config);
 //$result = $model->builder()->where($condition)->select();
 $md = $model->findOne(['id' => 9]);
-$md['status'] = 3;
+$md['status'] = 2;
 $updated = $md->update();
-var_dump($md->toArray());
 var_dump($updated);
-
-
+var_dump($md->toArray());
+$model->username = 'test' . rand(1, 1000);
+$model->password = '123123';
+$model->nickname = 'waterfly';
+$model->status = 0;
+$model->email = rand(1, 1000) . 'email@email.com';
+$model->created = time();
+$newInstance = $model->save();
+var_dump($newInstance);
 $config = [
     'host' => 'localhost',
     'user' => 'root',
@@ -62,7 +68,6 @@ $config = [
 
 //$pool = new Pool($config);
 //$i = 0;
-//$q = new SplQueue();
 //while ($i < 10) {
 //    $pool->getConnection();
 //    $i++;
