@@ -1,6 +1,6 @@
 <?php
 /**
- * @license https://github.com/racecourse/courser/license.md
+ * @license MIT
  * @copyright Copyright (c) 2017
  * @author: bugbear
  * @date: 2017/7/17
@@ -22,8 +22,6 @@ class Pool
     private $closed = true;
 
     private $config = [];
-
-    private $maxConnections = -1;
 
     private $lockConnections = [];
 
@@ -64,7 +62,8 @@ class Pool
             }
         }
         if (!empty($this->freeConnections)) {
-            foreach ($this->freeConnections as $identify => $conn) {
+            while (!empty($this->freeConnections)) {
+                $conn = array_pop($this->freeConnections);
                 if (!$conn) {
                     continue;
                 }
@@ -73,6 +72,7 @@ class Pool
                     continue;
                 }
                 $connection = $conn;
+                $this->enqueueConnections[$conn->identify] = $conn;
                 break;
             }
         }
@@ -129,10 +129,11 @@ class Pool
 
     public function query($sql, $value)
     {
-        echo "*********" . count($this->freeConnections) . "===" . count($this->enqueueConnections) . "*********\n";
-        if (empty($this->enqueueConnections)) {
+        while (empty($this->enqueueConnections)) {
             $this->getConnection();
         }
+        echo "*********" . count($this->freeConnections) . "===" . count($this->enqueueConnections) . "*********\n";
+
         $connection = array_pop($this->enqueueConnections);
         if ($connection->isClose()) {
             $this->reconnect($connection);
@@ -142,7 +143,10 @@ class Pool
         if ($errorCode) {
             throw new RuntimeException('Connection error(%d):%s', $errorCode, $connection->getError());
         }
-        $this->freeConnections[$connection->identify] = $connection;
+        if (!isset($this->freeConnections[$connection->identify])) {
+            $this->freeConnections[$connection->identify] = $connection;
+        }
+        echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->enqueueConnections) . "*********\n";
 
         return $result;
     }
@@ -159,12 +163,5 @@ class Pool
         $connection->beginTransaction();
         return $connection;
     }
-
-    public function getLockId()
-    {
-
-    }
-
-
 }
 
