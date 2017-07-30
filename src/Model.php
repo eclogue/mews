@@ -24,7 +24,7 @@ class Model implements \ArrayAccess
     protected $debug = true;
 
 
-    protected $pk = [];
+    public $pk = [];
 
     private $config = [];
 
@@ -169,8 +169,7 @@ class Model implements \ArrayAccess
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->before();
-
-        var_dump($this->result);
+        $this->free;
 
         return $this->getModel($this->result);
     }
@@ -185,11 +184,17 @@ class Model implements \ArrayAccess
     {
         $data = $this->revertFields($data);
         $id =  $this->builder()->insert($data);
-        if (isset($this->fields[$id])) {
-            $data['id'] = $id;
-        }
+        $this->increment($id);
 
         return $this->getModel($data);
+    }
+
+    public function setPrimaryKey() {
+        foreach($this->fields as $field => $entity) {
+            if (isset($entity['pk'])) {
+                $this->pk[$field] = $entity['value'];
+            }
+        }
     }
 
     /**
@@ -237,7 +242,7 @@ class Model implements \ArrayAccess
      * @param string $value
      * @return Model|null
      */
-    public function findByIndex($index, $value)
+    public function findByUnique($index, $value)
     {
         return $this->findOne([$index => $value]);
     }
@@ -262,7 +267,11 @@ class Model implements \ArrayAccess
      */
     public function find(array $where, $options = [])
     {
-        $where = $this->revertFields($where);
+        if (!empty($where)) {
+            $where = $this->revertFields($where);
+        }
+        $condition = $this->getChange();
+        $where = array_merge($condition, $where);
         $builder = $this->builder()->where($where);
         if (!empty($options)) {
             foreach ($options as $method => $option) {
@@ -333,13 +342,9 @@ class Model implements \ArrayAccess
         }
         $data = [];
         if (!empty($this->pk)) {
-            foreach ($this->fields as $field => $entity) {
-                if (isset($this->attr[$field]) && $entity['value'] !== $this->attr[$field]) {
-                    $data[$field] = $this->attr[$field];
-                    $this->fields[$field]['value'] = $this->attr[$field];
-                }
-            }
-            return $this->update($data, $this->pk);
+            $data = $this->getChange();
+
+            return $this->update($data);
         } else {
             foreach ($this->fields as $field => $entity) {
                 if (isset($this->attr[$field])) {
@@ -350,16 +355,20 @@ class Model implements \ArrayAccess
                     $this->attr[$field] = $entity['default'];
                 }
             }
+            $this->free();
+
             return $this->insert($data);
         }
     }
 
-    public function increment($field, $value)
+    public function increment($id)
     {
-        if (!is_numeric($value)) {
-            throw new \Exception('increment column must be integer');
+        foreach ($this->fields as $key => $entity) {
+            if (isset($entity['auto']) && isset($entity['pk'])) {
+                $this->pk[$key] = $id;
+                break;
+            }
         }
-        $this->attr[$field] = $this->attr[$field] . ' + ' . $value;
     }
 
     public function query($sql, $value = [])
@@ -413,12 +422,12 @@ class Model implements \ArrayAccess
         $model->result = $model->convert($data);
         foreach ($this->fields as $field => $entity) {
             if (!isset($data[$entity['column']])) continue;
-            $model->attr[$field] = $data[$entity['column']];
             $model->fields[$field]['value'] = $data[$entity['column']];
             if (isset($entity['pk'])) {
                 $model->pk[$field] = $data[$entity['column']];
             }
         }
+
 
         return $model;
     }
@@ -453,6 +462,9 @@ class Model implements \ArrayAccess
     public function getChange()
     {
         $data = [];
+        if (empty($this->attr)) {
+            return $data;
+        }
         foreach ($this->fields as $field => $entity) {
             if (isset($this->attr[$field]) && $entity['value'] != $this->attr[$field]) {
                 $data[$field] = $this->attr[$field];
@@ -460,7 +472,14 @@ class Model implements \ArrayAccess
             }
         }
 
+        $this->free();
+
         return $data;
+    }
+
+    public function free()
+    {
+        $this->attr = [];
     }
 
     /**
@@ -490,8 +509,8 @@ class Model implements \ArrayAccess
      */
     public function __get($key)
     {
-        if (isset($this->attr[$key])) {
-            return $this->attr[$key];
+        if (isset($this->result[$key])) {
+            return $this->result[$key];
         }
         return null;
     }

@@ -29,12 +29,17 @@ class Pool
 
     private static $instance = null;
 
+    private $poolSize = -1;
+
 
     public function __construct($config)
     {
         $this->config = $config;
         $this->freeConnections = [];
         $this->enqueueConnections = [];
+        if (isset($config['poolSize'])) {
+            $this->poolSize = $config['poolSize'];
+        }
     }
 
     public static function singleton($config)
@@ -52,11 +57,6 @@ class Pool
             throw new RuntimeException('Connection pool is closed');
         }
 
-        $active = count($this->enqueueConnections) + count($this->freeConnections)
-            + count($this->lockConnections);
-        if ($this->maxConnections !== -1 && $active >= $this->maxConnections) {
-            throw new RuntimeException('Connection pool ...'); // @fixme
-        }
         $connection = null;
         if ($uid) {
             if (isset($this->lockConnections[$uid])) {
@@ -65,6 +65,9 @@ class Pool
         }
         if (!empty($this->freeConnections)) {
             foreach ($this->freeConnections as $identify => $conn) {
+                if (!$conn) {
+                    continue;
+                }
                 if ($conn->isClose()) {
                     $this->removeConnection($conn);
                     continue;
@@ -73,8 +76,12 @@ class Pool
                 break;
             }
         }
-
         if (!$connection) {
+            $active = count($this->enqueueConnections) + count($this->freeConnections)
+                + count($this->lockConnections);
+            if ($this->poolSize !== -1 && $active >= $this->poolSize) {
+                throw new RuntimeException('Connection pool ...'); // @fixme
+            }
             $connection = $this->acquireConnection($uid);
         }
 

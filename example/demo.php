@@ -14,10 +14,10 @@ use Mews\Pool;
 
 class User extends Model
 {
-    public $table = 'users';
+    protected $table = 'users';
 
-    public $fields = [
-        'id' => ['column' => 'id', 'pk' => true, 'type' => 'int'],
+    protected $fields = [
+        'id' => ['column' => 'id', 'pk' => true, 'type' => 'int', 'auto' => true],
         'username' => ['column' => 'username', 'type' => 'string'],
         'nickname' => ['column' => 'nickname', 'type' => 'string'],
         'password' => ['column' => 'password', 'type' => 'string'],
@@ -38,7 +38,7 @@ $config = [
 ];
 
 $condition = [
-    'id' => ['$in' => [1,2]],
+    'id' => ['$in' => [1, 2]],
     'username' => ['$eq' => 'mulberry'],
     '$or' => [
         'id' => ['$gt' => 5]
@@ -60,8 +60,9 @@ try {
     $model->email = rand(1, 1000) . 'email@email.com';
     $model->created = time();
     $newInstance = $model->save();
-    var_dump($newInstance);
+    var_dump($newInstance->pk);
 //    throw new Exception('test');
+    $newInstance->delete();
     $model->commit();
 } catch (Exception $e) {
     var_dump($e);
