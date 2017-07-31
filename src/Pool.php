@@ -15,19 +15,21 @@ class Pool
 {
 
 
-    private $freeConnections;
+    private $freeConnections = [];
 
-    private $activeConnections;
+    private $activeConnections = [];
+
+    private $lockConnections = [];
 
     private $closed = true;
 
     private $config = [];
 
-    private $lockConnections = [];
-
-    private static $instance = null;
+    private static $instance;
 
     private $poolSize = -1;
+
+    private $minxPoolSize = 10;
 
 
     public function __construct($config)
@@ -38,6 +40,7 @@ class Pool
         if (isset($config['poolSize'])) {
             $this->poolSize = $config['poolSize'];
         }
+        $this->flag = uniqid();
     }
 
     public static function singleton($config)
@@ -51,6 +54,7 @@ class Pool
 
     public function getConnection($uid = null)
     {
+
         if (!$this->closed) {
             throw new RuntimeException('Connection pool is closed');
         }
@@ -60,6 +64,12 @@ class Pool
             if (isset($this->lockConnections[$uid])) {
                 return $this->lockConnections[$uid];
             }
+        }
+        $active = count($this->activeConnections)
+            + count($this->freeConnections)
+            + count($this->lockConnections);
+        if ($active < $this->minxPoolSize) {
+            return $this->acquireConnection($uid);
         }
         while (!empty($this->freeConnections)) {
             $conn = array_pop($this->freeConnections);
@@ -75,14 +85,11 @@ class Pool
             break;
         }
         if (!$connection) {
-            $active = count($this->activeConnections) + count($this->freeConnections)
-                + count($this->lockConnections);
             if ($this->poolSize !== -1 && $active >= $this->poolSize) {
                 throw new RuntimeException('Connection pool ...'); // @fixme
             }
             $connection = $this->acquireConnection($uid);
         }
-        echo "*********" . count($this->freeConnections) . "===" . count($this->activeConnections) . "*********\n";
 
         return $connection;
     }
@@ -114,16 +121,19 @@ class Pool
 
     public function releaseConnection($identify)
     {
-        echo '>>>>>>>>>' . $identify . PHP_EOL;
+        echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->activeConnections) . "*********\n";
         if (isset($this->lockConnections[$identify])) {
             $connection = $this->lockConnections[$identify];
             unset($this->lockConnections[$identify]);
-        } else {
+            if (!isset($this->freeConnections[$identify])) {
+                $this->freeConnections[$identify] = $connection;
+            }
+        }
+        if (isset($this->activeConnections[$identify])) {
             $connection = $this->activeConnections[$identify];
             unset($this->activeConnections[$identify]);
+            $this->freeConnections[$identify] = $connection;
         }
-
-        $this->freeConnections[$identify] = $connection;
 
         return true;
     }
@@ -146,7 +156,6 @@ class Pool
         if (!isset($this->freeConnections[$connection->identify])) {
             $this->freeConnections[$connection->identify] = $connection;
         }
-        echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->activeConnections) . "*********\n";
 
         return $result;
     }

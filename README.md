@@ -1,9 +1,13 @@
-#Mews
+# Mews
  
- used like mongo shell
+ PHP ORM，used connection pool, similar to mongodb query shell.
  
 ### install
  `composer require racecourse/mews`
+ 
+ 
+ **Notice** beta stage
+ 
 ### get start
 ```php
 <?php
