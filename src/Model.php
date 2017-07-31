@@ -30,7 +30,6 @@ class Model implements \ArrayAccess
 
     private $transactionId = '';
 
-
     private $attr = [];
 
     private $result = [];
@@ -90,7 +89,11 @@ class Model implements \ArrayAccess
     public function builder()
     {
         $connection = $this->getConnection();
-        $builder = new Builder($connection); // 如果
+        $release = function () use ($connection) {
+          $this->pool->releaseConnection($connection->identify);
+        };
+        $release->bindTo($this);
+        $builder = new Builder($connection, $release); // 如果
         $builder->table($this->table);
 
         return $builder;
@@ -98,11 +101,7 @@ class Model implements \ArrayAccess
 
     private function getConnection()
     {
-        if ($this->transactionId) {
-            return $this->pool->getConnection($this->transactionId);
-        }
-
-        return $this->pool;
+        return $this->pool->getConnection($this->transactionId);
     }
 
 //

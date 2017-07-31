@@ -17,7 +17,7 @@ class Pool
 
     private $freeConnections;
 
-    private $enqueueConnections;
+    private $activeConnections;
 
     private $closed = true;
 
@@ -34,7 +34,7 @@ class Pool
     {
         $this->config = $config;
         $this->freeConnections = [];
-        $this->enqueueConnections = [];
+        $this->activeConnections = [];
         if (isset($config['poolSize'])) {
             $this->poolSize = $config['poolSize'];
         }
@@ -61,29 +61,28 @@ class Pool
                 return $this->lockConnections[$uid];
             }
         }
-        if (!empty($this->freeConnections)) {
-            while (!empty($this->freeConnections)) {
-                $conn = array_pop($this->freeConnections);
-                if (!$conn) {
-                    continue;
-                }
-                if ($conn->isClose()) {
-                    $this->removeConnection($conn);
-                    continue;
-                }
-                $connection = $conn;
-                $this->enqueueConnections[$conn->identify] = $conn;
-                break;
+        while (!empty($this->freeConnections)) {
+            $conn = array_pop($this->freeConnections);
+            if (!$conn) {
+                continue;
             }
+            if ($conn->isClose()) {
+                $this->removeConnection($conn);
+                continue;
+            }
+            $connection = $conn;
+            $this->activeConnections[$conn->identify] = $conn;
+            break;
         }
         if (!$connection) {
-            $active = count($this->enqueueConnections) + count($this->freeConnections)
+            $active = count($this->activeConnections) + count($this->freeConnections)
                 + count($this->lockConnections);
             if ($this->poolSize !== -1 && $active >= $this->poolSize) {
                 throw new RuntimeException('Connection pool ...'); // @fixme
             }
             $connection = $this->acquireConnection($uid);
         }
+        echo "*********" . count($this->freeConnections) . "===" . count($this->activeConnections) . "*********\n";
 
         return $connection;
     }
@@ -95,7 +94,7 @@ class Pool
         if ($lock) {
             $this->lockConnections[$connection->identify] = $connection;
         } else {
-            $this->enqueueConnections[$connection->identify] = $connection;
+            $this->activeConnections[$connection->identify] = $connection;
         }
 
         return $connection;
@@ -115,13 +114,15 @@ class Pool
 
     public function releaseConnection($identify)
     {
-        echo $identify . PHP_EOL;
+        echo '>>>>>>>>>' . $identify . PHP_EOL;
         if (isset($this->lockConnections[$identify])) {
-            return true;
+            $connection = $this->lockConnections[$identify];
+            unset($this->lockConnections[$identify]);
+        } else {
+            $connection = $this->activeConnections[$identify];
+            unset($this->activeConnections[$identify]);
         }
 
-        $connection = $this->lockConnections[$identify];
-        unset($this->lockConnections[$identify]);
         $this->freeConnections[$identify] = $connection;
 
         return true;
@@ -129,12 +130,11 @@ class Pool
 
     public function query($sql, $value)
     {
-        while (empty($this->enqueueConnections)) {
+        while (empty($this->activeConnections)) {
             $this->getConnection();
         }
-        echo "*********" . count($this->freeConnections) . "===" . count($this->enqueueConnections) . "*********\n";
 
-        $connection = array_pop($this->enqueueConnections);
+        $connection = array_pop($this->activeConnections);
         if ($connection->isClose()) {
             $this->reconnect($connection);
         }
@@ -146,7 +146,7 @@ class Pool
         if (!isset($this->freeConnections[$connection->identify])) {
             $this->freeConnections[$connection->identify] = $connection;
         }
-        echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->enqueueConnections) . "*********\n";
+        echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->activeConnections) . "*********\n";
 
         return $result;
     }

@@ -22,13 +22,15 @@ class Builder
 
     public $parser;
 
-    private $connection;
+    public $connection;
 
+    private $release;
 
-    public function __construct($connection)
+    public function __construct(Connection $connection, $release)
     {
         $this->parser = new Parser();
         $this->connection = $connection;
+        $this->release = $release;
     }
 
     public function table($table)
@@ -204,5 +206,6 @@ class Builder
         $this->sql = [];
         $this->values = [];
         $this->fields = [];
+        ($this->release)();
     }
 }
