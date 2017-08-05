@@ -10,6 +10,8 @@
 namespace Mews;
 
 use RuntimeException;
+use InvalidArgumentException;
+use SplQueue;
 
 class Pool
 {
@@ -19,7 +21,7 @@ class Pool
 
     private $activeConnections = [];
 
-    private $lockConnections = [];
+    private $transactionManner = [];
 
     private $closed = true;
 
@@ -31,16 +33,21 @@ class Pool
 
     private $minxPoolSize = 10;
 
+    private $uuid  = '';
+
+    private $allConnections = [];
+
 
     public function __construct($config)
     {
         $this->config = $config;
-        $this->freeConnections = [];
+        $this->freeConnections = new SplQueue();
         $this->activeConnections = [];
         if (isset($config['poolSize'])) {
             $this->poolSize = $config['poolSize'];
         }
         $this->flag = uniqid();
+        $this->uuid = uniqid();
     }
 
     public static function singleton($config)
@@ -48,61 +55,61 @@ class Pool
         if (!self::$instance) {
             self::$instance = new self($config);
         }
-
+        echo "@@@uuid" . self::$instance->uuid . PHP_EOL;
         return self::$instance;
     }
 
-    public function getConnection($uid = false)
+    public function getConnection($identify = null)
     {
-        echo "uuuuuuuuuuuuuid" . $uid;
+
         if (!$this->closed) {
             throw new RuntimeException('Connection pool is closed');
         }
 
         $connection = null;
-        if ($uid) {
-            if (isset($this->lockConnections[$uid])) {
-                return $this->lockConnections[$uid];
+        if ($identify) {
+            if (in_array($identify, $this->activeConnections)) {
+                return $this->allConnections[$identify];
             }
         }
-        $active = count($this->activeConnections)
-            + count($this->freeConnections)
-            + count($this->lockConnections);
+        $active = count($this->allConnections);
         if ($active < $this->minxPoolSize) {
-            return $this->acquireConnection($uid);
+            return $this->acquireConnection();
         }
         while (!empty($this->freeConnections)) {
-            $conn = array_pop($this->freeConnections);
-            if (!$conn) {
+            $index = $this->freeConnections->dequeue();
+            $connection = $this->allConnections[$index];
+            if (!$connection) {
+                unset($this->allConnections[$index]);
                 continue;
             }
-            if ($conn->isClose()) {
-                $this->removeConnection($conn);
+            if ($connection->isClose()) {
+                $this->reconnect($connection);
                 continue;
             }
-            $connection = $conn;
-            $this->activeConnections[$conn->identify] = $conn;
+            $this->activeConnections[] = $connection->identify;
             break;
         }
         if (!$connection) {
             if ($this->poolSize !== -1 && $active >= $this->poolSize) {
                 throw new RuntimeException('Connection pool ...'); // @fixme
             }
-            $connection = $this->acquireConnection($uid);
+            $connection = $this->acquireConnection();
+        }
+
+        if ($identify === true) {
+            $this->addTransaction($connection->identify);
         }
 
         return $connection;
     }
 
 
-    private function acquireConnection($lock = false)
+    private function acquireConnection()
     {
         $connection = new Connection($this->config);
-        if ($lock) {
-            $this->lockConnections[$connection->identify] = $connection;
-        } else {
-            $this->activeConnections[$connection->identify] = $connection;
-        }
+        $this->activeConnections[] = $connection->identify;
+        $this->allConnections[$connection->identify] = $connection;
 
         return $connection;
     }
@@ -110,28 +117,19 @@ class Pool
     public function removeConnection($connection)
     {
         $identify = $connection->identify;
-        if (isset($this->freeConnections[$identify])) {
-            unset($this->freeConnections[$identify]);
-        }
-        if ($this->freeConnections[$identify]) {
-            unset($this->freeConnections[$identify]);
+        if (isset($this->allConnections[$identify])) {
+            unset($this->allConnections[$identify]);
         }
     }
 
 
-    public function releaseConnection($identify, $lock = false)
+    public function releaseConnection($identify)
     {
-        echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->activeConnections) . "*********\n";
-        if ($lock && isset($this->lockConnections[$identify])) {
-            $connection = $this->lockConnections[$identify];
-            unset($this->lockConnections[$identify]);
-            if (!isset($this->freeConnections[$identify])) {
-                $this->freeConnections[$identify] = $connection;
-            }
-        } else if (isset($this->activeConnections[$identify])) {
-            $connection = $this->activeConnections[$identify];
-            unset($this->activeConnections[$identify]);
-            $this->freeConnections[$identify] = $connection;
+        echo "++++++++$identify:" . $this->freeConnections->count() . ">>>>>" . count($this->activeConnections) . "*********\n";
+        $index = array_search($identify, $this->activeConnections);
+        if ($index && !in_array($identify, $this->transactionManner)) {
+             unset($this->activeConnections[$index]);
+            $this->freeConnections->enqueue($identify);
         }
 
         return true;
@@ -139,11 +137,8 @@ class Pool
 
     public function query($sql, $value)
     {
-        while (empty($this->activeConnections)) {
-            $this->getConnection();
-        }
-
-        $connection = array_pop($this->activeConnections);
+        $connection = null;
+        $connection = $this->getConnection();
         if ($connection->isClose()) {
             $this->reconnect($connection);
         }
@@ -152,9 +147,7 @@ class Pool
         if ($errorCode) {
             throw new RuntimeException('Connection error(%d):%s', $errorCode, $connection->getError());
         }
-        if (!isset($this->freeConnections[$connection->identify])) {
-            $this->freeConnections[$connection->identify] = $connection;
-        }
+        $this->releaseConnection($connection->identify);
 
         return $result;
     }
@@ -164,12 +157,25 @@ class Pool
         return $connection->connect($this->config);
     }
 
+    public function addTransaction($identify)
+    {
+        $this->transactionManner[] = $identify;
+    }
+
 
     public function touchConnection($identify)
     {
         $connection = $this->getConnection();
         $connection->beginTransaction();
         return $connection;
+    }
+
+    public function remove($arr, $index)
+    {
+        $keys = array_keys($arr);
+        $offset = array_search($index, $arr);
+        array_splice($arr, $offset, 1);
+        return $arr;
     }
 }
 

@@ -88,6 +88,11 @@ class Connection
         echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . implode(',', $values) . PHP_EOL;
         $types = str_repeat('s', count($values));
         $stmt = $this->link->prepare($sql);
+        if (!$stmt) {
+            var_dump($this->link); // 2006
+            // throw new RuntimeException('Mysql Error' . $this->getError . '#code' . $this->getErrorCode());
+            $this->connect($this->config);
+        } 
         $stmt->bind_param($types, ...$values);
         $stmt->execute();
         if ($stmt->errno) {
@@ -96,6 +101,7 @@ class Connection
         $this->affectedRows = $stmt->affected_rows;
 
         return $stmt;
+    
     }
 
     public function query($sql, $values)
@@ -119,7 +125,6 @@ class Connection
                 $ret[] = $row;
             }
             $stmt->free_result();
-            $stmt->close();
 
             return $ret;
         }
