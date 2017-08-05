@@ -52,9 +52,9 @@ class Pool
         return self::$instance;
     }
 
-    public function getConnection($uid = null)
+    public function getConnection($uid = false)
     {
-
+        echo "uuuuuuuuuuuuuid" . $uid;
         if (!$this->closed) {
             throw new RuntimeException('Connection pool is closed');
         }
@@ -119,17 +119,16 @@ class Pool
     }
 
 
-    public function releaseConnection($identify)
+    public function releaseConnection($identify, $lock = false)
     {
         echo "++++++++" . count($this->freeConnections) . ">>>>>" . count($this->activeConnections) . "*********\n";
-        if (isset($this->lockConnections[$identify])) {
+        if ($lock && isset($this->lockConnections[$identify])) {
             $connection = $this->lockConnections[$identify];
             unset($this->lockConnections[$identify]);
             if (!isset($this->freeConnections[$identify])) {
                 $this->freeConnections[$identify] = $connection;
             }
-        }
-        if (isset($this->activeConnections[$identify])) {
+        } else if (isset($this->activeConnections[$identify])) {
             $connection = $this->activeConnections[$identify];
             unset($this->activeConnections[$identify]);
             $this->freeConnections[$identify] = $connection;

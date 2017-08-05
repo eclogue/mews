@@ -46,6 +46,7 @@ $condition = [
 ];
 $model = new User($config);
 $transaction = $model->startTransaction();
+var_dump($transaction);
 try {
 //$result = $model->builder()->where($condition)->select();
     $user = $model->findOne(['id' => 9]);
@@ -59,13 +60,13 @@ try {
     $model->status = 0;
     $model->email = rand(1, 1000) . 'email@email.com';
     $model->created = time();
+//    var_dump($model);
     $newInstance = $model->save();
     var_dump($newInstance->pk);
-//    throw new Exception('test');
+    throw new Exception('test');
     $newInstance->delete();
     $model->commit();
 } catch (Exception $e) {
-    var_dump($e);
     $model->rollback();
 }
 $config = [

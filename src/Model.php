@@ -168,7 +168,7 @@ class Model implements \ArrayAccess
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->before();
-        $this->free;
+        $this->free();
 
         return $this->getModel($this->result);
     }
@@ -377,7 +377,7 @@ class Model implements \ArrayAccess
 
     public function withTransaction($transactionId)
     {
-        $this->connection = (Pool::singleton($this->config))->getConnection($transactionId);
+        $this->transactionId = $transactionId;
         return $this;
     }
 
@@ -392,16 +392,18 @@ class Model implements \ArrayAccess
     {
         $connection = $this->getConnection();
         $connection->commit();
+        $this->pool->releaseConnection($connection->identify, true);
 
-        $this->pool->releaseConnection($connection->identify);
+        return true;
     }
 
     public function rollback()
     {
         $connection = $this->getConnection();
         $connection->rollback();
+        $this->pool->releaseConnection($connection->identify, true);
 
-        $this->pool->releaseConnection($connection->identify);
+        return true;
     }
     public function remove()
     {
