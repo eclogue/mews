@@ -55,7 +55,7 @@ class Pool
         if (!self::$instance) {
             self::$instance = new self($config);
         }
-        echo "@@@uuid" . self::$instance->uuid . PHP_EOL;
+
         return self::$instance;
     }
 

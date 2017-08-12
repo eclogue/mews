@@ -85,11 +85,10 @@ class Connection
 
     public function execute($sql, $values)
     {
-        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . implode(',', $values) . PHP_EOL;
+//        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . implode(',', $values) . PHP_EOL;
         $types = str_repeat('s', count($values));
         $stmt = $this->link->prepare($sql);
         if (!$stmt) {
-            var_dump($this->link); // 2006
             // throw new RuntimeException('Mysql Error' . $this->getError . '#code' . $this->getErrorCode());
             $this->connect($this->config);
         } 
@@ -133,23 +132,35 @@ class Connection
         return $this->affectedRows;
     }
 
-
+    /**
+     * @todo
+     */
     private function release()
     {
 
     }
 
+    /**
+     * close mysql link
+     */
     public function close()
     {
         $this->link->close();
     }
 
+    /**
+     * check mysql link is closed
+     *
+     * @return bool
+     */
     public function isClose()
     {
         return !$this->link->thread_id && !$this->link->host_info;
     }
 
-
+    /**
+     * @todo
+     */
     private function getType()
     {
 
