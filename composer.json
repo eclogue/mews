@@ -1,5 +1,5 @@
 {
-    "name": "racecourse/mews",
+    "name": "eclogue/mews",
     "description": "mysql for courser",
     "version": "0.0.1",
     "license": "MIT",
@@ -16,7 +16,7 @@
     "repositories": {
         "0": {
             "type": "vcs",
-            "url": "https://github.com/racecourse/mews"
+            "url": "https://github.com/eclogue/mews"
         },
         "packagist": {
             "type": "composer",

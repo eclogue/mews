@@ -17,12 +17,9 @@ class Model implements \ArrayAccess
 
     protected $cache = null;
 
-
     protected $flag = '';
 
-
     protected $debug = true;
-
 
     public $pk = [];
 

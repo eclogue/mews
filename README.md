@@ -3,7 +3,7 @@
  PHP ORM，used connection pool, similar to mongodb query shell.
  
 ### install
- `composer require racecourse/mews`
+ `composer require eclogue/mews`
  
  
  **Notice** beta stage
