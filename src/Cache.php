@@ -17,23 +17,15 @@ class Cache
 
     private $config = null;
 
-    protected $flag = '';
-
-    public $prefix = 'initcache';
+    public $prefix = 'mews_';
 
     public $enable = false;
 
-    public $length = 50;
-
     public $expire = 600;
-
-    public $registryExpire = 6000;
 
     public function __construct($config)
     {
-
         $this->config = $config;
-        $this->cache = Redis::getInstance($config);
     }
 
 
