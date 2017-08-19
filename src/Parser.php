@@ -6,13 +6,20 @@ use PHPUnit\Framework\Exception;
 
 class Parser
 {
-
+    /**
+     * logical operator
+     */
     public static $logical = [
         '$and' => ' AND ',
         '$or' => ' OR ',
         '$xor' => ' XOR ',
     ];
 
+    /**
+     * query operator
+     *
+     * @var array
+     */
     private static $operator = [
         '$eq' => '=',
         '$neq' => '!=',
@@ -26,12 +33,16 @@ class Parser
         '$in' => 'function',
         '$inc' => true,
     ];
-
-    public $tree = [];
+    /**
+     * Undocumented variable
+     *
+     * @var array
+     */
+    private $tree = [];
 
     public $sql = '';
 
-    public $values = [];
+    private $values = [];
 
 
     public function __construct()
@@ -49,7 +60,6 @@ class Parser
         foreach ($entities as $key => $value) {
             $node = [];
             $value = !is_array($value) ? ['$eq' => $value] : $value;
-            echo $key . PHP_EOL;
             if (!isset(self::$logical[$key])) {
                 $operator = array_keys($value);
                 $operators = array_keys(self::$operator);
@@ -76,6 +86,12 @@ class Parser
         }
     }
 
+    /**
+     * Undocumented function
+     *
+     * @param [type] $child
+     * @return void
+     */
     public function getDefaultNode($child)
     {
         return [

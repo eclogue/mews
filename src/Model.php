@@ -34,13 +34,21 @@ class Model implements \ArrayAccess
     protected $table = '';
 
 
-
+    /**
+     * table schema
+     *
+     * @var array
+     */
     protected $fields = [
         'id' => ['column' => 'id', 'type' => 'int', 'pk' => true],
         'username' => ['column' => 'username', 'type' => 'string'],
     ];
 
-
+    /**
+     * last execute sql
+     * 
+     * @var string
+     */
     protected $lastSql = '';
 
     /**
@@ -65,6 +73,11 @@ class Model implements \ArrayAccess
         $this->table = $table;
     }
 
+    /**
+     * get table
+     *
+     * @return string
+     */
     public function getTable()
     {
         return $this->table;
@@ -185,6 +198,11 @@ class Model implements \ArrayAccess
         return $this->getModel($data);
     }
 
+    /**
+     * set primary key
+     * 
+     * @return void
+     */
     public function setPrimaryKey() {
         foreach($this->fields as $field => $entity) {
             if (isset($entity['pk'])) {
@@ -356,7 +374,12 @@ class Model implements \ArrayAccess
             return $this->insert($data);
         }
     }
-
+    /**
+     * @deprecated version
+     *
+     * @param [type] $id
+     * @return void
+     */
     public function increment($id)
     {
         foreach ($this->fields as $key => $entity) {
@@ -367,32 +390,60 @@ class Model implements \ArrayAccess
         }
     }
 
-    public function query($sql, $value = [])
+    /**
+     * execute sql
+     *
+     * @param string $sql
+     * @param array $value
+     * @return mixed
+     */
+    public function query($sql,array  $value = [])
     {
         return $this->pool->query($sql, $value);
     }
 
+    /**
+     * make model execute in a tansaction
+     *
+     * @param string $transactionId
+     * @return self
+     */
     public function withTransaction($transactionId)
     {
         $this->connection = (Pool::singleton($this->config))->getConnection($transactionId);
+
         return $this;
     }
 
+    /**
+     * start a transction
+     *
+     * @return string
+     */
     public function startTransaction()
     {
         $connection = $this->pool->getConnection(true);
         $connection->startTransaction();
+
         return $this->transactionId = $connection->identify;
     }
 
+    /**
+     * commit current transction
+     *
+     * @return string
+     */
     public function commit()
     {
         $connection = $this->getConnection();
         $connection->commit();
-
         $this->pool->releaseConnection($connection->identify);
     }
-
+    /**
+     * roolback current transction
+     *
+     * @return string
+     */
     public function rollback()
     {
         $connection = $this->getConnection();
@@ -400,6 +451,12 @@ class Model implements \ArrayAccess
 
         $this->pool->releaseConnection($connection->identify);
     }
+
+    /**
+     * delete record
+     *
+     * @return mixed
+     */
     public function remove()
     {
         if (!$this->pk) return false;
@@ -473,6 +530,7 @@ class Model implements \ArrayAccess
         return $data;
     }
 
+    
     public function free()
     {
         $this->attr = [];
@@ -523,6 +581,12 @@ class Model implements \ArrayAccess
             $this->attr[$key] = $value;
     }
 
+    /**
+     * revert fields
+     *
+     * @param array $fields
+     * @return array
+     */
     protected function revertFields($fields)
     {
         if (!$fields) return [];
@@ -535,7 +599,12 @@ class Model implements \ArrayAccess
 
         return $res;
     }
-
+    /**
+     * transform to array
+     *
+     * @param array $object
+     * @return array
+     */
     public function toArray($object = [])
     {
         $result = [];

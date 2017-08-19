@@ -15,26 +15,55 @@ use SplQueue;
 
 class Pool
 {
-
-
+    /**
+     * free connections
+     *
+     * @var array
+     */
     private $freeConnections = [];
 
+    /**
+     * active connections 
+     * @var array
+     */
     private $activeConnections = [];
 
-    private $transactionManner = [];
+    /**
+     * transcation manager
+     * 
+     * @var array
+     */
+    private $transactionManager = [];
 
+    /**
+     * is connection pool close
+     *
+     * @var boolean
+     */
     private $closed = true;
 
+    /**
+     * connection config
+     *
+     * @var array
+     */
     private $config = [];
 
+    /**
+     * singleto instance
+     *
+     * @var new static
+     */
     private static $instance;
-
+    
     private $poolSize = -1;
 
     private $minxPoolSize = 10;
-
-    private $uuid  = '';
-
+    /**
+     * store all connections
+     *
+     * @var array
+     */
     private $allConnections = [];
 
 
@@ -50,7 +79,13 @@ class Pool
         $this->uuid = uniqid();
     }
 
-    public static function singleton($config)
+    /**
+     * get pool sigleton
+     *
+     * @param array $config
+     * @return new static
+     */
+    public static function singleton(array $config)
     {
         if (!self::$instance) {
             self::$instance = new self($config);
@@ -58,7 +93,12 @@ class Pool
 
         return self::$instance;
     }
-
+    /**
+     * get connection from connection pool
+     * 
+     * @param mixed $identify
+     * @return Conection
+     */
     public function getConnection($identify = null)
     {
 
@@ -104,7 +144,11 @@ class Pool
         return $connection;
     }
 
-
+    /**
+     * apply new connection
+     *
+     * @return Connection
+     */
     private function acquireConnection()
     {
         $connection = new Connection($this->config);
@@ -114,6 +158,11 @@ class Pool
         return $connection;
     }
 
+    /**
+     * remove connection from pool
+     * @param object $connection Connection instance
+     * @return void
+     */
     public function removeConnection($connection)
     {
         $identify = $connection->identify;
@@ -122,12 +171,16 @@ class Pool
         }
     }
 
-
+    /**
+     * relase connection and recycle
+     * @param string $identify
+     * 
+     * @return boolean
+     */
     public function releaseConnection($identify)
     {
-        echo "++++++++$identify:" . $this->freeConnections->count() . ">>>>>" . count($this->activeConnections) . "*********\n";
         $index = array_search($identify, $this->activeConnections);
-        if ($index && !in_array($identify, $this->transactionManner)) {
+        if ($index && !in_array($identify, $this->transactionManager)) {
              unset($this->activeConnections[$index]);
             $this->freeConnections->enqueue($identify);
         }
@@ -135,6 +188,14 @@ class Pool
         return true;
     }
 
+    /**
+     * execute sql
+     *
+     * @param string $sql
+     * @param array $value
+     * @return mixed
+     * @throws RuntimeException
+     */
     public function query($sql, $value)
     {
         $connection = null;
@@ -152,24 +213,41 @@ class Pool
         return $result;
     }
 
+    /**
+     * reconnect
+     *
+     * @param Connection $connection
+     * @return void
+     */
     private function reconnect(Connection $connection)
     {
         return $connection->connect($this->config);
     }
 
+    /**
+     * add a transaction
+     *
+     * @param string $identify
+     * @return void
+     */
     public function addTransaction($identify)
     {
-        $this->transactionManner[] = $identify;
+        $this->transactionManager[] = $identify;
     }
 
-
+    /**
+     * get connection and start a transaction
+     *
+     * @param string $identify
+     * @return string
+     */
     public function touchConnection($identify)
     {
         $connection = $this->getConnection();
         $connection->beginTransaction();
         return $connection;
     }
-
+    
     public function remove($arr, $index)
     {
         $keys = array_keys($arr);

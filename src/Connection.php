@@ -14,14 +14,39 @@ use RuntimeException;
 
 class Connection
 {
+    /**
+     * connection config
+     *
+     * @var array
+     */
     private $config = [];
 
+    /**
+     * mysqli source
+     *
+     * @var [type]
+     */
     private $link;
 
+    /**
+     * connection identify
+     *
+     * @var string
+     */
     public $identify = '';
 
+    /**
+     * xa transaction
+     *
+     * @var boolean
+     */
     public $xa = false;
 
+    /**
+     * query affect
+     *
+     * @var integer
+     */
     public $affectedRows = 0;
 
 
@@ -83,7 +108,15 @@ class Connection
         return $this->link->errno;
     }
 
-    public function execute($sql, $values)
+    /**
+     * execute sql
+     *
+     * @param string $sql
+     * @param array $values
+     * @return object
+     * @throws RuntimeException
+     */
+    public function execute($sql, array $values = [])
     {
 //        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . implode(',', $values) . PHP_EOL;
         $types = str_repeat('s', count($values));
@@ -91,8 +124,10 @@ class Connection
         if (!$stmt) {
             // throw new RuntimeException('Mysql Error' . $this->getError . '#code' . $this->getErrorCode());
             $this->connect($this->config);
-        } 
-        $stmt->bind_param($types, ...$values);
+        }
+        if (count($values)) {
+            $stmt->bind_param($types, ...$values);
+        }
         $stmt->execute();
         if ($stmt->errno) {
             throw new RuntimeException(printf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
@@ -103,6 +138,13 @@ class Connection
     
     }
 
+    /**
+     * execute query sql
+     *
+     * @param string $sql
+     * @param array $values
+     * @return mix
+     */
     public function query($sql, $values)
     {
         $sql = ltrim($sql);
@@ -166,7 +208,11 @@ class Connection
 
     }
 
-
+    /**
+     * start transaction
+     *
+     * @return void
+     */
     public function startTransaction()
     {
         $this->link->autocommit(false);
@@ -175,6 +221,11 @@ class Connection
 //        $this->link->query('XA START ' . $this->identify);
     }
 
+    /**
+     * commit transaction
+     *
+     * @return void
+     */
     public function commit()
     {
         $this->link->autocommit(true);
@@ -182,6 +233,11 @@ class Connection
 //        $this->link->query('XA COMMIT ' . $this->identify);
     }
 
+    /**
+     * rollback transaction
+     *
+     * @return void
+     */
     public function rollback()
     {
         $this->link->rollback();
