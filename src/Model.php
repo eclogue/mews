@@ -15,9 +15,7 @@ class Model implements \ArrayAccess
 {
     protected $pool;
 
-    protected $cache = null;
-
-    protected $flag = '';
+    protected $cache;
 
     protected $debug = true;
 
@@ -32,6 +30,8 @@ class Model implements \ArrayAccess
     private $result = [];
 
     protected $table = '';
+
+    protected $enableCache = false;
 
 
     /**
@@ -57,10 +57,12 @@ class Model implements \ArrayAccess
      * @param array $config
      * @param array $cache
      */
-    public function __construct(array $config, array $cache = [])
+    public function __construct(array $config, $cache = [])
     {
         $this->config = $config;
         $this->pool = Pool::singleton($config);
+        $this->cache = new Cache($cache);
+
     }
 
     /**
@@ -114,19 +116,11 @@ class Model implements \ArrayAccess
         return $this->pool->getConnection($this->transactionId);
     }
 
-//
-//    public function cache()
-//    {
-//        $this->cache->register($this->table, $this->flag);
-//        $key = $this->cacheKey();
-//        $this->cache->set($key, $this->result);
-//        return $this;
-//    }
 
     /**
      * @return string
      */
-    public function cacheKey()
+    public function cacheKey($pk)
     {
         $str = json_encode($this->config) . strtolower($this->sql) . $this->flag;
         return md5($str);
@@ -148,14 +142,6 @@ class Model implements \ArrayAccess
         return $result[0]['count'] ?? 0;
     }
 
-    /**
-     * @param $value
-     */
-    public function register($value)
-    {
-        $key = $this->table . '#' . $this->flag;
-        $this->cache->set($key, $value);
-    }
 
     /**
      * update model
@@ -174,10 +160,11 @@ class Model implements \ArrayAccess
         if (empty($changed)) {
             return $this;
         }
+        $this->before();
         $mapping = $this->convert($changed);
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
-        $this->before();
+        $this->after();
         $this->free;
 
         return $this->getModel($this->result);
@@ -221,6 +208,7 @@ class Model implements \ArrayAccess
         if (!empty($this->pk)) {
             $where = $this->pk;
         }
+        $this->before();
         $where = $this->revertFields($where);
         $this->builder()
             ->where($where)
@@ -237,14 +225,20 @@ class Model implements \ArrayAccess
     public function findOne(array $where)
     {
         $where = $this->revertFields($where);
-        $result = $this->builder()
-            ->where($where)
+        $builder = $this->builder();
+        if ($this->enableCache) {
+            $builder->field('id');
+        }
+        $result = $builder->where($where)
             ->limit(1)
             ->select();
         if (empty($result)) {
             return null;
         }
         $result = array_pop($result);
+        if ($this->enableCache) {
+            return $this->findById($result['id']);
+        }
 
         return $this->getModel($result);
     }
@@ -269,6 +263,19 @@ class Model implements \ArrayAccess
      */
     public function findById($id)
     {
+        if ($this->enableCache) {
+            $key = $this->cache->get($id);
+            $value = $this->cache->get($key);
+            if (!$value) {
+                $value = $this->loadFromDB($id);
+                if ($value) {
+                    $this->cache->set($key, $value);
+                    $value = $this->getModel($value);
+                }
+            }
+
+            return $value;
+        }
         return $this->findOne(['id' => $id]);
     }
 
@@ -286,7 +293,11 @@ class Model implements \ArrayAccess
         }
         $condition = $this->getChange();
         $where = array_merge($condition, $where);
-        $builder = $this->builder()->where($where);
+        $builder = $this->builder();
+        if ($this->enableCache) {
+            $builder->field(['id']);
+        }
+        $builder->where($where);
         if (!empty($options)) {
             foreach ($options as $method => $option) {
                 $builder = $builder->$method($option);
@@ -294,7 +305,16 @@ class Model implements \ArrayAccess
         }
 
         $result = $builder->select();
-        if (!$result) return [];
+        if (empty($result)) {
+            return [];
+        }
+        if ($this->enableCache) {
+            $ids = [];
+            foreach ($result as $value) {
+                $ids[] = $value['id'];
+            }
+            return $this->findByIds($ids);
+        }
         $res = [];
         foreach ($result as $data) {
             $res[] = $this->getModel($data);
@@ -312,6 +332,9 @@ class Model implements \ArrayAccess
     public function findAll($options = [])
     {
         $builder = $this->builder();
+        if ($this->enableCache) {
+            $builder->field(['id']);
+        }
         if (!empty($options)) {
             $options = $this->revertFields($options);
             foreach ($options as $method => $option) {
@@ -319,8 +342,15 @@ class Model implements \ArrayAccess
             }
         }
         $result = $builder->select();
-        if (!$result) {
+        if (empty($result)) {
             return [];
+        }
+        if ($this->enableCache) {
+            $ids = [];
+            foreach ($result as $value) {
+                $ids[] = $value['id'];
+            }
+            return $this->findByIds($ids);
         }
         $res = [];
         foreach ($result as $data) {
@@ -341,7 +371,17 @@ class Model implements \ArrayAccess
         if (!is_array($ids)) {
             throw new \Exception('FindIds param ids must be array');
         }
-        $this->find(['id' => ['$in' => $ids]]);
+        if ($this->enableCache) {
+            $values = $this->loadFromCache($ids);
+        } else {
+            $values = $this->loadFromDB($ids);
+        }
+
+        if (!empty($values)) {
+            $values = $this->getModel($values);
+        }
+
+        return $values;
     }
 
     /**
@@ -354,11 +394,12 @@ class Model implements \ArrayAccess
         if (empty($this->attr)) {
             return null;
         }
+        $this->before();
         $data = [];
+        $result = null;
         if (!empty($this->pk)) {
             $data = $this->getChange();
-
-            return $this->update($data);
+            $result =  $this->update($data);
         } else {
             foreach ($this->fields as $field => $entity) {
                 if (isset($this->attr[$field])) {
@@ -370,12 +411,14 @@ class Model implements \ArrayAccess
                 }
             }
             $this->free();
-
-            return $this->insert($data);
+            $result = $this->insert($data);
         }
+
+        $this->after();
+
+        return $result;
     }
     /**
-     * @deprecated version
      *
      * @param [type] $id
      * @return void
@@ -388,6 +431,61 @@ class Model implements \ArrayAccess
                 break;
             }
         }
+    }
+
+    public function getKeys($ids) {
+        $keys = [];
+        foreach($ids as $id) {
+            $keys[] = $this->cache->getKey($id);
+        }
+
+        return $keys;
+    }
+
+    private function loadFromCache($ids)
+    {
+        $keys = $this->getKeys($ids);
+        $values = $this->cache->getMultiple($keys);
+        if (count($values) !== count($ids)) {
+            $res = [];
+            $ret = [];
+            foreach ($values as $key => $value) {
+                $res[$value['id']] = $value;
+            }
+            $missKeys = array_diff($ids, array_keys($res));
+            $missValues = $this->loadFromDB($missKeys);
+            $changed = count($missKeys) - count($missValues);
+            if ($changed) {
+                $missValues = array_pad($missValues, $changed, null);
+            }
+            $miss = array_combine($missKeys, $missValues);
+            $values = array_merge($values, $miss);
+            $caches = [];
+            foreach ($ids as $key => $id) {
+                $ret[] = $values[$id];
+                $key = $this->cacheKey($id);
+                $caches[$key] = $values[$id];
+            }
+            $this->cache->setMultiple($caches);
+
+            return $ret;
+        }
+
+        return $values;
+    }
+
+    private function loadFromDB($ids)
+    {
+        $builder = $this->builder()->field('id');
+        $operator = is_array($ids) ? '$in' : '$eq';
+        $where = [
+            ['id' => [$operator => $ids]]
+        ];
+        $builder->where($where);
+
+        $result = $builder->select();
+
+        return $result ? $result : [];
     }
 
     /**
