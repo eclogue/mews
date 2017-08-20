@@ -61,10 +61,13 @@ $user->builder()
 
 ```
 
+
+### cache
+ mews cache is dependence primary key `id`.If you want to use cache please make sure your table had primary key `id`.
+
 ### Feature
  -  connection pool
  -  connection pool transaction
- - ~~add mysqlnd_ms~~
- - ~~cache~~
+ -  cache
  - ~~cluster connection pool~~
 

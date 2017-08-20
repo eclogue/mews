@@ -61,7 +61,10 @@ class Model implements \ArrayAccess
     {
         $this->config = $config;
         $this->pool = Pool::singleton($config);
-        $this->cache = new Cache($cache);
+        if (!empty($cache)) {
+            $client = new Cache($cache);
+            $this->setCache($client);
+        }
 
     }
 
@@ -91,6 +94,22 @@ class Model implements \ArrayAccess
     public function setCache($cache)
     {
         $this->cache = $cache;
+        $this->enableCache = true;
+    }
+
+    /**
+     * get cache key
+     *
+     * @param string $key
+     * @return string
+     */
+    public function getKey($key)
+    {
+        $key = md5($this->table . ':' . $key);
+        if ($this->hashTag) {
+            $key = '{' . $key . '}';
+        }
+        return $this->prefix . $key;
     }
 
     /**
@@ -132,13 +151,16 @@ class Model implements \ArrayAccess
      * @param array $where
      * @return int
      */
-    public function count(array $where)
+    public function count(array $where = [])
     {
         $where = $this->revertFields($where);
-        $result = $this->builder()
-            ->field(['count(*) as count'])
-            ->where($where)
-            ->select();
+        $builder = $this->builder()
+            ->field(['count(*) as count']);
+        if ($where) {
+            $builder = $builder->where($where);
+        }
+        $result = $builder->select();
+
         return $result[0]['count'] ?? 0;
     }
 
@@ -232,6 +254,7 @@ class Model implements \ArrayAccess
         $result = $builder->where($where)
             ->limit(1)
             ->select();
+
         if (empty($result)) {
             return null;
         }
@@ -263,11 +286,14 @@ class Model implements \ArrayAccess
      */
     public function findById($id)
     {
+        var_dump($this->enableCache);
         if ($this->enableCache) {
-            $key = $this->cache->get($id);
+            $key = $this->getKey($id);
+            var_dump($key);
             $value = $this->cache->get($key);
             if (!$value) {
                 $value = $this->loadFromDB($id);
+                var_dump($value);
                 if ($value) {
                     $this->cache->set($key, $value);
                     $value = $this->getModel($value);
@@ -436,7 +462,7 @@ class Model implements \ArrayAccess
     public function getKeys($ids) {
         $keys = [];
         foreach($ids as $id) {
-            $keys[] = $this->cache->getKey($id);
+            $keys[] = $this->getKey($id);
         }
 
         return $keys;
@@ -446,25 +472,31 @@ class Model implements \ArrayAccess
     {
         $keys = $this->getKeys($ids);
         $values = $this->cache->getMultiple($keys);
-        if (count($values) !== count($ids)) {
-            $res = [];
+        $len = count($ids);
+        $valueLen = count($values);
+        if ($len !== $valueLen) {
+            $tmp = [];
             $ret = [];
             foreach ($values as $key => $value) {
-                $res[$value['id']] = $value;
+                $tmp[$value['id']] = $value;
             }
-            $missKeys = array_diff($ids, array_keys($res));
+            $missKeys = array_diff($ids, array_keys($tmp));
             $missValues = $this->loadFromDB($missKeys);
-            $changed = count($missKeys) - count($missValues);
+            $changed = $len - count($missValues) - $valueLen;
             if ($changed) {
-                $missValues = array_pad($missValues, $changed, null);
+                $missValues = array_pad($missValues, $len, null);
             }
-            $miss = array_combine($missKeys, $missValues);
-            $values = array_merge($values, $miss);
+            foreach($missValues as $key => $value) {
+                if (isset($tmp[$value['id']])) {
+                    continue;
+                }
+                $tmp[$value['id']] = $value;
+            }
             $caches = [];
             foreach ($ids as $key => $id) {
-                $ret[] = $values[$id];
-                $key = $this->cacheKey($id);
-                $caches[$key] = $values[$id];
+                $ret[] = $tmp[$id];
+                $key = $this->getKey($id);
+                $caches[$key] = $tmp[$id];
             }
             $this->cache->setMultiple($caches);
 
@@ -476,14 +508,10 @@ class Model implements \ArrayAccess
 
     private function loadFromDB($ids)
     {
-        $builder = $this->builder()->field('id');
+        $builder = $this->builder();
         $operator = is_array($ids) ? '$in' : '$eq';
-        $where = [
-            ['id' => [$operator => $ids]]
-        ];
-        $builder->where($where);
-
-        $result = $builder->select();
+        $where = ['id' => [$operator => $ids]];
+        $result = $builder->where($where)->select();
 
         return $result ? $result : [];
     }
@@ -540,7 +568,7 @@ class Model implements \ArrayAccess
     /**
      * roolback current transction
      *
-     * @return string
+     * @return void
      */
     public function rollback()
     {
@@ -569,6 +597,9 @@ class Model implements \ArrayAccess
      */
     public function getModel($data)
     {
+        if (empty($data)) {
+            return null;
+        }
         $model = clone $this;
         $model->result = $model->convert($data);
         foreach ($this->fields as $field => $entity) {

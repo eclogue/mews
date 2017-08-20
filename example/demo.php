@@ -11,6 +11,7 @@ define('ROOT', dirname(dirname(__FILE__)));
 require ROOT . '/vendor/autoload.php';
 use Mews\Model;
 use Mews\Pool;
+use Mews\Cache;
 
 class User extends Model
 {
@@ -37,6 +38,15 @@ $config = [
     'options' => '',
 ];
 
+$redisConfig = [
+    'servers' => [
+        'host' => '127.0.0.1',
+        'port' => '6379',
+    ],
+    'prefix' => 'demo',
+    'ttl' => 60 * 10,
+];
+
 $condition = [
     'id' => ['$in' => [1, 2]],
     'username' => ['$eq' => 'mulberry'],
@@ -44,12 +54,21 @@ $condition = [
         'id' => ['$gt' => 5]
     ],
 ];
+$cache = new Cache($redisConfig);
+$cache->enable(true);
+//$cache->set('test', 1);
+//$result = $cache->get('test');
+//var_dump($result);
+//exit(0);
 $model = new User($config);
+$model->setCache($cache);
 $transaction = $model->startTransaction();
 var_dump($transaction);
 try {
 //$result = $model->builder()->where($condition)->select();
-    $user = $model->findOne(['id' => 9]);
+    $user = $model->find(['id' => ['$in' => [1,3]]]);
+    var_dump($user);
+    return;
     $user['status'] = 2;
     $updated = $user->withTransaction($transaction)->update();
 //var_dump($updated);
@@ -67,6 +86,7 @@ try {
     $newInstance->delete();
     $model->commit();
 } catch (Exception $e) {
+    var_dump($e->getMessage());
     $model->rollback();
 }
 $config = [

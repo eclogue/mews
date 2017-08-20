@@ -118,14 +118,14 @@ class Connection
      */
     public function execute($sql, array $values = [])
     {
-//        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . implode(',', $values) . PHP_EOL;
-        $types = str_repeat('s', count($values));
+        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . json_encode($values) . PHP_EOL;
         $stmt = $this->link->prepare($sql);
         if (!$stmt) {
-            // throw new RuntimeException('Mysql Error' . $this->getError . '#code' . $this->getErrorCode());
-            $this->connect($this->config);
+             throw new RuntimeException('Mysql Error' . $this->getError() . '#code' . $this->getErrorCode());
+//            $this->connect($this->config);
         }
         if (count($values)) {
+            $types = str_repeat('s', count($values));
             $stmt->bind_param($types, ...$values);
         }
         $stmt->execute();
@@ -135,7 +135,7 @@ class Connection
         $this->affectedRows = $stmt->affected_rows;
 
         return $stmt;
-    
+
     }
 
     /**
@@ -143,7 +143,7 @@ class Connection
      *
      * @param string $sql
      * @param array $values
-     * @return mix
+     * @return mixed
      */
     public function query($sql, $values)
     {

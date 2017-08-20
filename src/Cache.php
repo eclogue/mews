@@ -10,18 +10,18 @@
 namespace Mews;
 
 use Psr\SimpleCache\CacheInterface;
-use Redis;
+use Predis\Client;
 
 class Cache implements CacheInterface
 {
 
-    private $cache;
+    private $client;
 
     private $config = [];
 
     public $prefix = '';
 
-    private $isEnable = false;
+    private $isEnable = true;
 
     private $ttl = 600;
 
@@ -29,34 +29,40 @@ class Cache implements CacheInterface
 
     protected $table = '';
 
-    public function __construct($config, $prefix = 'mews', $ttl = 600)
+    public function __construct($config)
     {
         $this->config = $config;
-        $this->prefix = $prefix;
-        $this->ttl = $ttl;
-        $this->cache = $this->getCache($config);
+        $this->init($config);
+    }
+
+    public function init($config)
+    {
+        if (isset($config['prefix'])) {
+            $this->prefix = $config['prefix'];
+        }
+        if (isset($config['ttl'])) {
+            $this->ttl = $config['ttl'];
+        }
+        $connect = $config['servers'];
+        $options = $config['options'] ?? [];
+        $this->client = new Client($connect, $options);
     }
 
     /**
      * @param array $config
      *
-     * @return null|Redis
+     * @return null|Client
      */
-    public function getCache($config)
+    public function getClient($config)
     {
-        if (!class_exists(Redis::class)) {
-            $this->enable(false);
-            return null;
-        }
-        $config = new Redis($config);
 
-        return $config;
+        return $this->client;
     }
 
     /**
      * enable cache
      *
-     * @param boolean $enable
+     * @param bool $enable
      */
     public function enable($enable)
     {
@@ -82,31 +88,20 @@ class Cache implements CacheInterface
     }
 
     /**
-     * get cache key
-     *
      * @param string $key
-     * @return string
+     * @param number $ttl
+     * @return bool
      */
-    public function getKey($key)
-    {
-        $key = md5($this->table . ':' . $key);
-        if ($this->hashTag) {
-            $key = '{' . $key . '}';
-        }
-
-        return $this->prefix . $key;
-    }
-
     public function expire($key, $ttl)
     {
         if (is_array($key)) {
-            $transaction = $this->cache->multi();
+            $pipe = $this->client->pipeline();
             foreach ($key as $item) {
-                $transaction->expire($item, $ttl);
+                $pipe->expire($item, $ttl);
             }
-            $transaction->exec();
+            $pipe->execute();
         } else {
-            $this->cache->expire($key, $ttl);
+            $this->client->expire($key, $ttl);
         }
 
         return true;
@@ -126,7 +121,10 @@ class Cache implements CacheInterface
             return $default;
         }
 
-        return $this->cache->get($key);
+        $value = $this->client->get($key);
+        $value = $value ? unserialize($value) : $default;
+
+        return $value;
     }
 
     /**
@@ -146,8 +144,12 @@ class Cache implements CacheInterface
         if (!$this->isEnable) {
             return false;
         }
-        $this->cache->set($key, $value);
-        $this->expire($key, $ttl);
+        $value = serialize($value);
+        $ttl = $ttl ?? $this->ttl;
+        $pipe = $this->client->pipeline();
+        $pipe->set($key, $value)
+            ->expire($key, $ttl)
+            ->execute();
 
         return true;
     }
@@ -161,7 +163,7 @@ class Cache implements CacheInterface
      */
     public function delete($key)
     {
-        return $this->cache->del($key);
+        return $this->client->del($key);
     }
 
     /**
@@ -172,7 +174,7 @@ class Cache implements CacheInterface
      */
     public function clear()
     {
-        return $this->cache->flushAll();
+        return $this->client->flushAll();
     }
 
     /**
@@ -190,12 +192,18 @@ class Cache implements CacheInterface
         if (!$this->isEnable) {
             return $default;
         }
-        $data = $this->cache->mget($keys);
-        if ($data) {
+        $data = $this->client->mget($keys);
+        if (!$data) {
             return $default;
         }
+        $result = [];
+        foreach ($data as $value) {
+            if ($value) {
+                $result[] = unserialize($value);
+            }
+        }
 
-        return $data;
+        return $result;
     }
 
     /**
@@ -215,9 +223,14 @@ class Cache implements CacheInterface
         if (!$this->isEnable) {
             return false;
         }
-        $this->cache->mset($values);
-        $keys = array_keys($values);
-        $this->expire($keys, $ttl);
+        $ttl = $ttl ?? $this->ttl;
+        $pipe = $this->client->pipeline();
+        foreach($values as $key => $value) {
+            $value = serialize($value);
+            $pipe->set($key, $value);
+            $pipe->expire($key, $ttl);
+        }
+        $pipe->execute();
 
         return true;
     }
@@ -235,7 +248,7 @@ class Cache implements CacheInterface
             return false;
         }
 
-        $this->cache->delete($keys);
+        $this->client->del($keys);
 
         return true;
     }
@@ -258,7 +271,7 @@ class Cache implements CacheInterface
             return false;
         }
 
-        return $this->cache->exists($key);
+        return $this->client->exists($key);
     }
 
 }

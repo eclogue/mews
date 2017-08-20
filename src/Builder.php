@@ -95,7 +95,9 @@ class Builder
         }
         list($sql, $values) = $this->toSql();
         $sql = sprintf($select, $fields, $this->tableName, $sql);
+        echo $sql . PHP_EOL;
         $res = $this->connection->query($sql, $values);
+        var_dump($res);
         $this->free();
 
         return $res;

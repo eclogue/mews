@@ -2,7 +2,7 @@
 
 namespace Mews;
 
-use PHPUnit\Framework\Exception;
+use InvalidArgumentException;
 
 class Parser
 {
@@ -89,8 +89,8 @@ class Parser
     /**
      * Undocumented function
      *
-     * @param [type] $child
-     * @return void
+     * @param boolean $child
+     * @return array
      */
     public function getDefaultNode($child)
     {
@@ -163,8 +163,13 @@ class Parser
                 $temp = $this->increment($node['name'], $value);
             } else if (self::$operator[$operator] === 'function') {
                 $func = substr($operator, 1);
-                $temp[] = $this->sqlFunction($func);
-                $value = is_array($value) ? implode(',', $value) : $value;
+                $func = $this->sqlFunction($func);
+                if (is_array($value)) {
+                    $placeholder = array_pad([], count($value), '?');
+                    $placeholder = implode(',', $placeholder);
+                    echo $placeholder . PHP_EOL;
+                    $temp[] = sprintf($func, $placeholder);
+                }
             } else {
                 $temp[] = self::$operator[$operator];
                 $temp[] = ' ? ';
@@ -172,11 +177,16 @@ class Parser
             }
             $temp[] = $connector;
             $string .= implode('', $temp);
-            $this->values[] = $value;
+            if (is_array($value)) {
+                foreach ($value as $item) {
+                    $this->values[] = $item;
+                }
+            } else {
+                $this->values[] = $value;
+            }
         }
 
         return $string;
-//        return rtrim($string, ' ' . $node['connector']);
     }
 
     private function parseLogicalNode($node)
@@ -187,13 +197,14 @@ class Parser
 
     protected function sqlFunction($name)
     {
-        return strtoupper($name) . ' (?) ';
+        return strtoupper($name) . ' (%s) ';
     }
+
 
     protected function increment($field, $value)
     {
         if (!is_numeric($value)) {
-            throw new Exception('mews increment value must be number');
+            throw new InvalidArgumentException('mews increment value must be number');
         }
         return $field .= '=' . $field . ' + ' . $value;
     }
