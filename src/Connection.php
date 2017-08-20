@@ -118,11 +118,10 @@ class Connection
      */
     public function execute($sql, array $values = [])
     {
-        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . json_encode($values) . PHP_EOL;
+//        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . json_encode($values) . PHP_EOL;
         $stmt = $this->link->prepare($sql);
         if (!$stmt) {
              throw new RuntimeException('Mysql Error' . $this->getError() . '#code' . $this->getErrorCode());
-//            $this->connect($this->config);
         }
         if (count($values)) {
             $types = str_repeat('s', count($values));
@@ -130,7 +129,7 @@ class Connection
         }
         $stmt->execute();
         if ($stmt->errno) {
-            throw new RuntimeException(printf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
+            throw new RuntimeException(sprintf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
         }
         $this->affectedRows = $stmt->affected_rows;
 

@@ -286,14 +286,11 @@ class Model implements \ArrayAccess
      */
     public function findById($id)
     {
-        var_dump($this->enableCache);
         if ($this->enableCache) {
             $key = $this->getKey($id);
-            var_dump($key);
             $value = $this->cache->get($key);
             if (!$value) {
                 $value = $this->loadFromDB($id);
-                var_dump($value);
                 if ($value) {
                     $this->cache->set($key, $value);
                     $value = $this->getModel($value);
