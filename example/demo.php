@@ -36,6 +36,7 @@ $config = [
     'password' => '123123',
     'dbname' => 'knight',
     'options' => '',
+    'debug' => true,
 ];
 
 $redisConfig = [
