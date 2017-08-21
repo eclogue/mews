@@ -26,6 +26,8 @@ class Builder
 
     private $release;
 
+    private $log = false;
+
     public function __construct(Connection $connection, $release)
     {
         $this->parser = new Parser();
@@ -129,6 +131,10 @@ class Builder
             $sql[] = $this->sql['offset'];
         }
         $sql = implode(' ', $sql);
+        if ($this->debug) {
+            echo '>>execute sql:' . $sql . 'values:' . json_encode($values);
+        }
+
         return [$sql, $values];
     }
 
@@ -209,5 +215,10 @@ class Builder
         $this->values = [];
         $this->fields = [];
         ($this->release)();
+    }
+
+    public function debug($debug)
+    {
+        $this->log = $debug;
     }
 }

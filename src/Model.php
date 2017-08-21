@@ -19,6 +19,8 @@ class Model implements \ArrayAccess
 
     protected $debug = true;
 
+    protected $prefix = '';
+
     public $pk = [];
 
     private $config = [];
@@ -57,15 +59,17 @@ class Model implements \ArrayAccess
      * @param array $config
      * @param array $cache
      */
-    public function __construct(array $config, $cache = [])
+    public function __construct(array $config)
     {
         $this->config = $config;
-        $this->pool = Pool::singleton($config);
-        if (!empty($cache)) {
-            $client = new Cache($cache);
-            $this->setCache($client);
+        if (isset($config['debug'])) {
+            $this->debug = $config['debug'];
         }
-
+        if (isset($config['prefix'])) {
+            $this->prefix = $config['prefix'];
+        }
+        $servers = $config['servers'];
+        $this->pool = Pool::singleton($servers);
     }
 
     /**
@@ -98,7 +102,7 @@ class Model implements \ArrayAccess
     }
 
     /**
-     * get cache key
+     * get cache key @fixme
      *
      * @param string $key
      * @return string
@@ -106,9 +110,10 @@ class Model implements \ArrayAccess
     public function getKey($key)
     {
         $key = md5($this->table . ':' . $key);
-        if ($this->hashTag) {
-            $key = '{' . $key . '}';
-        }
+//        if ($this->cache->hash) {
+//            $key = '{' . $key . '}';
+//        }
+
         return $this->prefix . $key;
     }
 
@@ -125,6 +130,7 @@ class Model implements \ArrayAccess
         };
         $release->bindTo($this);
         $builder = new Builder($connection, $release); // 如果
+        $builder->debug($this->debug);
         $builder->table($this->table);
 
         return $builder;
@@ -135,15 +141,6 @@ class Model implements \ArrayAccess
         return $this->pool->getConnection($this->transactionId);
     }
 
-
-    /**
-     * @return string
-     */
-    public function cacheKey($pk)
-    {
-        $str = json_encode($this->config) . strtolower($this->sql) . $this->flag;
-        return md5($str);
-    }
 
     /**
      * get count by condition
@@ -187,7 +184,7 @@ class Model implements \ArrayAccess
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->after();
-        $this->free;
+        $this->free();
 
         return $this->getModel($this->result);
     }

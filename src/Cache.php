@@ -70,7 +70,7 @@ class Cache implements CacheInterface
     }
 
     /**
-     * set cache key to hash tag mode
+     * set cache key to hash tag mode @todo
      *
      * @param bool $hash
      * @return $this
@@ -81,6 +81,7 @@ class Cache implements CacheInterface
 
         return $this;
     }
+
 
     public function setTable($tableName)
     {
