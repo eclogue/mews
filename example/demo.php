@@ -31,11 +31,14 @@ class User extends Model
 }
 
 $config = [
-    'host' => '127.0.0.1',
-    'user' => 'root',
-    'password' => '123123',
-    'dbname' => 'knight',
-    'options' => '',
+    'servers' => [
+        'host' => '127.0.0.1',
+        'user' => 'root',
+        'password' => '123123',
+        'dbname' => 'knight',
+        'options' => '',
+        'pool' => false,
+    ],
     'debug' => true,
 ];
 
@@ -46,6 +49,8 @@ $redisConfig = [
     ],
     'prefix' => 'demo',
     'ttl' => 60 * 10,
+    'enable' => true,
+    'debug' => true,
 ];
 
 $condition = [
@@ -56,18 +61,14 @@ $condition = [
     ],
 ];
 $cache = new Cache($redisConfig);
-$cache->enable(true);
-//$cache->set('test', 1);
-//$result = $cache->get('test');
-//var_dump($result);
-//exit(0);
 $model = new User($config);
 $model->setCache($cache);
 $transaction = $model->startTransaction();
 var_dump($transaction);
 try {
-//$result = $model->builder()->where($condition)->select();
-    $user = $model->find(['id' => ['$in' => [1,3]]]);
+$result = $model->builder()->where($condition)->select();
+//    $user = $model->find(['id' => ['$in' => [ 9]]]);
+    exit;
     var_dump($user);
     return;
     $user['status'] = 2;

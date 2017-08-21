@@ -49,6 +49,13 @@ class Connection
      */
     public $affectedRows = 0;
 
+    /**
+     * connection instance
+     *
+     * @var null
+     */
+    private static $instance = null;
+
 
 
     /**
@@ -63,6 +70,15 @@ class Connection
         $this->connect($config);
     }
 
+    public static function singleton($config)
+    {
+        if (!static::$instance) {
+            static::$instance = new static($config);
+        }
+
+        return static::$instance;
+    }
+
     /**
      * connect mysql
      *
@@ -73,7 +89,9 @@ class Connection
         $user = $config['user'] ?? 'root';
         $password = $config['password'] ?? '';
         $host = $config['host'] ?? 'localhost';
-        $host = 'p:' . $host;
+        if (isset($config['pool'])) {
+            $host = 'p:' . $host;
+        }
         $port = $config['port'] ?? '3306';
         $dbname = $config['dbname'];
         $charset = $config['charset'] ?? 'utf8';

@@ -167,7 +167,6 @@ class Parser
                 if (is_array($value)) {
                     $placeholder = array_pad([], count($value), '?');
                     $placeholder = implode(',', $placeholder);
-                    echo $placeholder . PHP_EOL;
                     $temp[] = sprintf($func, $placeholder);
                 }
             } else {

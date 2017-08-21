@@ -26,7 +26,7 @@ class Builder
 
     private $release;
 
-    private $log = false;
+    private $isDebug = false;
 
     public function __construct(Connection $connection, $release)
     {
@@ -97,9 +97,10 @@ class Builder
         }
         list($sql, $values) = $this->toSql();
         $sql = sprintf($select, $fields, $this->tableName, $sql);
-        echo $sql . PHP_EOL;
+        if ($this->isDebug) {
+            $this->log($sql, $values);
+        }
         $res = $this->connection->query($sql, $values);
-        var_dump($res);
         $this->free();
 
         return $res;
@@ -131,9 +132,6 @@ class Builder
             $sql[] = $this->sql['offset'];
         }
         $sql = implode(' ', $sql);
-        if ($this->debug) {
-            echo '>>execute sql:' . $sql . 'values:' . json_encode($values);
-        }
 
         return [$sql, $values];
     }
@@ -143,6 +141,9 @@ class Builder
         $delete = 'DELETE FROM `%s` %s';
         list($sql, $values) = $this->toSql();
         $sql = sprintf($delete, $this->tableName, $sql);
+        if ($this->isDebug) {
+            $this->log($sql, $values);
+        }
         $res = $this->connection->query($sql, $values);
         $this->free();
 
@@ -170,6 +171,9 @@ class Builder
         $values = array_merge($setVal, $values);
         $update = 'UPDATE `%s` SET %s %s';
         $sql = sprintf($update, $this->tableName, $set, $sql);
+        if ($this->isDebug) {
+            $this->log($sql, $values);
+        }
         $res = $this->connection->query($sql, $values);
         $this->free();
 
@@ -190,6 +194,9 @@ class Builder
         $placeholder = implode(',', $placeholder);
         $sql = 'INSERT INTO `%s`(%s)VALUE(%s)';
         $sql = sprintf($sql, $this->tableName, $fields, $placeholder);
+        if ($this->isDebug) {
+            $this->log($sql, $values);
+        }
         $id = $this->connection->query($sql, $values);
         $this->free();
 
@@ -214,11 +221,20 @@ class Builder
         $this->sql = [];
         $this->values = [];
         $this->fields = [];
-        ($this->release)();
+        if (is_callable($this->release)) {
+            ($this->release)();
+        }
     }
 
     public function debug($debug)
     {
-        $this->log = $debug;
+        $this->isDebug = $debug;
+    }
+
+    private function log($str, $args) {
+        if (!is_string($args)) {
+            $args = json_encode($args);
+        }
+        echo '>>info: ' . $str . '#args: ' . $args . PHP_EOL;
     }
 }

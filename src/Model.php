@@ -13,7 +13,7 @@ use InvalidArgumentException;
 
 class Model implements \ArrayAccess
 {
-    protected $pool;
+    protected $db;
 
     protected $cache;
 
@@ -34,6 +34,8 @@ class Model implements \ArrayAccess
     protected $table = '';
 
     protected $enableCache = false;
+    
+    protected $pool = false;
 
 
     /**
@@ -69,7 +71,12 @@ class Model implements \ArrayAccess
             $this->prefix = $config['prefix'];
         }
         $servers = $config['servers'];
-        $this->pool = Pool::singleton($servers);
+        if (isset($servers['pool']) && $servers['pool']) {
+            $this->db = Pool::singleton($servers);
+            $this->pool = true;
+        } else {
+            $this->db = Connection::singleton($servers);
+        }
     }
 
     /**
@@ -125,10 +132,13 @@ class Model implements \ArrayAccess
     public function builder()
     {
         $connection = $this->getConnection();
-        $release = function () use ($connection) {
-          $this->pool->releaseConnection($connection->identify);
-        };
-        $release->bindTo($this);
+        $release = null;
+        if ($this->pool) {
+            $release = function () use ($connection) {
+                $this->db->releaseConnection($connection->identify);
+            };
+            $release->bindTo($this);
+        }
         $builder = new Builder($connection, $release); // 如果
         $builder->debug($this->debug);
         $builder->table($this->table);
@@ -138,7 +148,11 @@ class Model implements \ArrayAccess
 
     private function getConnection()
     {
-        return $this->pool->getConnection($this->transactionId);
+        if ($this->pool) {
+            return $this->db->getConnection($this->transactionId);
+        }
+
+        return $this->db;
     }
 
 
@@ -519,7 +533,7 @@ class Model implements \ArrayAccess
      */
     public function query($sql,array  $value = [])
     {
-        return $this->pool->query($sql, $value);
+        return $this->db->query($sql, $value);
     }
 
     /**
@@ -530,7 +544,7 @@ class Model implements \ArrayAccess
      */
     public function withTransaction($transactionId)
     {
-        $this->connection = (Pool::singleton($this->config))->getConnection($transactionId);
+        $this->transactionId = $transactionId;
 
         return $this;
     }
@@ -542,7 +556,7 @@ class Model implements \ArrayAccess
      */
     public function startTransaction()
     {
-        $connection = $this->pool->getConnection(true);
+        $connection = $this->pool ? $this->db->getConnection(true) : $this->db;
         $connection->startTransaction();
 
         return $this->transactionId = $connection->identify;
@@ -557,7 +571,11 @@ class Model implements \ArrayAccess
     {
         $connection = $this->getConnection();
         $connection->commit();
-        $this->pool->releaseConnection($connection->identify);
+        if ($this->pool) {
+            $this->db->releaseConnection($connection->identify);
+        }
+
+        return true;
     }
     /**
      * roolback current transction
@@ -568,8 +586,9 @@ class Model implements \ArrayAccess
     {
         $connection = $this->getConnection();
         $connection->rollback();
-
-        $this->pool->releaseConnection($connection->identify);
+        if ($this->pool) {
+            $this->db->releaseConnection($connection->identify);
+        }
     }
 
     /**
