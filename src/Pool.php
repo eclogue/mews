@@ -50,9 +50,9 @@ class Pool
     private $config = [];
 
     /**
-     * singleto instance
+     * singleton instance
      *
-     * @var new static
+     * @var static
      */
     private static $instance;
     
@@ -83,7 +83,7 @@ class Pool
      * get pool sigleton
      *
      * @param array $config
-     * @return new static
+     * @return static
      */
     public static function singleton(array $config)
     {

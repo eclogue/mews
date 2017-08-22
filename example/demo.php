@@ -37,7 +37,7 @@ $config = [
         'password' => '123123',
         'dbname' => 'knight',
         'options' => '',
-        'pool' => false,
+        'pool' => true, // false
     ],
     'debug' => true,
 ];
@@ -50,7 +50,6 @@ $redisConfig = [
     'prefix' => 'demo',
     'ttl' => 60 * 10,
     'enable' => true,
-    'debug' => true,
 ];
 
 $condition = [
@@ -64,16 +63,12 @@ $cache = new Cache($redisConfig);
 $model = new User($config);
 $model->setCache($cache);
 $transaction = $model->startTransaction();
-var_dump($transaction);
 try {
 $result = $model->builder()->where($condition)->select();
-//    $user = $model->find(['id' => ['$in' => [ 9]]]);
-    exit;
+    $user = $model->find(['id' => ['$in' => [ 9]]]);
     var_dump($user);
-    return;
     $user['status'] = 2;
     $updated = $user->withTransaction($transaction)->update();
-//var_dump($updated);
 //var_dump($user->toArray());
     $model->username = 'test' . rand(1, 1000);
     $model->password = '123123';
@@ -84,21 +79,15 @@ $result = $model->builder()->where($condition)->select();
 //    var_dump($model);
     $newInstance = $model->save();
     var_dump($newInstance->pk);
-    throw new Exception('test');
+//    throw new Exception('test');
     $newInstance->delete();
     $model->commit();
 } catch (Exception $e) {
     var_dump($e->getMessage());
     $model->rollback();
 }
-$config = [
-    'host' => 'localhost',
-    'user' => 'root',
-    'password' => '123123',
-    'dbname' => 'knight',
-];
 
-//$pool = new Pool($config);
+//$pool = new Pool($config['servers']);
 //$i = 0;
 //while ($i < 10) {
 //    $pool->getConnection();
@@ -106,8 +95,8 @@ $config = [
 //}
 //$i = 0;
 //while($i < 20) {
-//    $sql = 'SELECT * FROM users WHERE id =?';
-//    $result = $pool->query($sql, [9]);
+//    $sql = 'SELECT * FROM users WHERE id >?';
+//    $result = $pool->query($sql, 1);
 //    $i++;
 //}
 

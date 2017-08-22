@@ -235,6 +235,6 @@ class Builder
         if (!is_string($args)) {
             $args = json_encode($args);
         }
-        echo '>>info: ' . $str . '#args: ' . $args . PHP_EOL;
+        echo '>>sql: ' . $str . ' #args: ' . $args . PHP_EOL;
     }
 }
