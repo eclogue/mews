@@ -34,7 +34,7 @@ class Model implements \ArrayAccess
     protected $table = '';
 
     protected $enableCache = false;
-    
+
     protected $pool = false;
 
 
@@ -50,7 +50,7 @@ class Model implements \ArrayAccess
 
     /**
      * last execute sql
-     * 
+     *
      * @var string
      */
     protected $lastSql = '';
@@ -194,7 +194,8 @@ class Model implements \ArrayAccess
             return $this;
         }
         $this->before();
-        $mapping = $this->convert($changed);
+        $mapping = $this->revertFields($changed);
+        var_dump($changed, $mapping);
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->after();
@@ -220,7 +221,7 @@ class Model implements \ArrayAccess
 
     /**
      * set primary key
-     * 
+     *
      * @return void
      */
     public function setPrimaryKey() {
@@ -634,7 +635,7 @@ class Model implements \ArrayAccess
      * @param array $data
      * @return array
      */
-    public function convert(array $data)
+    public function convert(array $data):array
     {
         $result = [];
         foreach ($this->fields as $field => $entity) {
@@ -672,7 +673,7 @@ class Model implements \ArrayAccess
         return $data;
     }
 
-    
+
     public function free()
     {
         $this->attr = [];
