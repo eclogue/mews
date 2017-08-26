@@ -152,21 +152,22 @@ class Builder
 
     public function update($data)
     {
-        $set = '';
+        $set = [];
         $setVal = [];
         foreach ($data as $field => $value) {
             if (is_array($value)) {
                 if (isset($value['$increment'])) {
-                    $set .= '`' . $field . '`=' . $field . '+' . $value;
+                    $set[] = '`' . $field . '`=' . $field . '+' . $value;
                 } else {
-                    $set .= '`' . $field . '`=?' . json_encode($value);
+                    $set[] = '`' . $field . '`=?' . json_encode($value);
                     $setVal[] = $value;
                 }
             } else {
-                $set .= '`' . $field . '`=?';
+                $set[] = '`' . $field . '`=?';
                 $setVal[] = $value;
             }
         }
+        $set = implode(',', $set);
         list($sql, $values) = $this->toSql();
         $values = array_merge($setVal, $values);
         $update = 'UPDATE `%s` SET %s %s';

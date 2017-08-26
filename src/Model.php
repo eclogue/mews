@@ -195,7 +195,6 @@ class Model implements \ArrayAccess
         }
         $this->before();
         $mapping = $this->revertFields($changed);
-        var_dump($changed, $mapping);
         $this->builder()->where($where)->update($mapping);
         $this->result = array_merge($this->result, $changed);
         $this->after();
