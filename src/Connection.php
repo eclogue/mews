@@ -136,23 +136,31 @@ class Connection
      */
     public function execute($sql, array $values = [])
     {
-//        echo ">> debug connection:" .$this->identify . "#"  . $sql . "@values:" . json_encode($values) . PHP_EOL;
-        $stmt = $this->link->prepare($sql);
-        if (!$stmt) {
-             throw new RuntimeException('Mysql Error' . $this->getError() . '#code' . $this->getErrorCode());
-        }
-        if (count($values)) {
-            $types = str_repeat('s', count($values));
-            $stmt->bind_param($types, ...$values);
-        }
-        $stmt->execute();
-        if ($stmt->errno) {
-            throw new RuntimeException(sprintf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
-        }
-        $this->affectedRows = $stmt->affected_rows;
+        if (!empty($values)) {
+            $stmt = $this->link->prepare($sql);
+            if (!$stmt) {
+                $this->connect($this->config);
+                $msg = 'Mysql Error' . $this->getError() . '#code' . $this->getErrorCode();
+                echo $msg . PHP_EOL;
+                throw new RuntimeException($msg);
+            }
+            if (count($values)) {
+                $types = str_repeat('s', count($values));
+                $stmt->bind_param($types, ...$values);
+            }
+            $stmt->execute();
+            if ($stmt->errno) {
+                throw new RuntimeException(sprintf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
+            }
+            $this->affectedRows = $stmt->affected_rows;
 
-        return $stmt;
+            return $stmt;
+        } else {
+            $ret = $this->link->query($sql);
+            $this->affectedRows = $this->link->affected_rows;
 
+            return $ret;
+        }
     }
 
     /**
@@ -171,24 +179,32 @@ class Connection
         if (!count($match)) {
             return $stmt;
         }
+
         $sqlType = strtoupper($match[0]);
         if ($sqlType === 'INSERT') {
-            $insertId = $stmt->insert_id;
-            $stmt->close();
-            return $insertId;
-        } else if ($sqlType === 'SELECT') {
-            $result = $stmt->get_result();
-            $ret = [];
-            while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-                $ret[] = $row;
+            if ($stmt instanceof \mysqli_stmt) {
+                $insertId = $stmt->insert_id;
+                $stmt->close();
+                return $insertId;
             }
-            $stmt->free_result();
 
-            return $ret;
+             return $this->link->insert_id;
+        } else if ($sqlType === 'SELECT') {
+            if ($stmt instanceof \mysqli_result) {
+                $result = $stmt->get_result();
+                $ret = [];
+                while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
+                    $ret[] = $row;
+                }
+                $stmt->free_result();
+
+                return $ret;
+            }
+
+            return $this->affectedRows;
+        } else {
+            $this->affectedRows;
         }
-        $stmt->close();
-
-        return $this->affectedRows;
     }
 
     /**
