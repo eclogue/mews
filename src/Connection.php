@@ -11,6 +11,7 @@ namespace Mews;
 
 use mysqli;
 use RuntimeException;
+use SebastianBergmann\CodeCoverage\Report\PHP;
 
 class Connection
 {
@@ -55,7 +56,6 @@ class Connection
      * @var null
      */
     private static $instance = null;
-
 
 
     /**
@@ -131,7 +131,7 @@ class Connection
      *
      * @param string $sql
      * @param array $values
-     * @return object
+     * @return mixed
      * @throws RuntimeException
      */
     public function execute($sql, array $values = [])
@@ -139,10 +139,7 @@ class Connection
         if (!empty($values)) {
             $stmt = $this->link->prepare($sql);
             if (!$stmt) {
-                $this->connect($this->config);
-                $msg = 'Mysql Error' . $this->getError() . '#code' . $this->getErrorCode();
-                echo $msg . PHP_EOL;
-                throw new RuntimeException($msg);
+                return false;
             }
             if (count($values)) {
                 $types = str_repeat('s', count($values));
@@ -172,8 +169,19 @@ class Connection
      */
     public function query($sql, $values)
     {
-        $sql = ltrim($sql);
         $stmt = $this->execute($sql, $values);
+        $code = $this->getErrorCode();
+        if ($code) {
+            $msg = 'Query Error' . $this->getError() . ' #code ' . $this->getErrorCode();
+            if (intval($code) === 2006) {
+                $this->connect($this->config);
+                $this->query($sql, $values);
+                echo $msg . PHP_EOL;
+            } else {
+                throw new RuntimeException($msg);
+            }
+        }
+        $sql = ltrim($sql);
         $pattern = '#^(insert|update|replace|select|delete)#i';
         preg_match($pattern, $sql, $match);
         if (!count($match)) {
@@ -188,7 +196,7 @@ class Connection
                 return $insertId;
             }
 
-             return $this->link->insert_id;
+            return $this->link->insert_id;
         } else if ($sqlType === 'SELECT') {
             if ($stmt instanceof \mysqli_result) {
                 $result = $stmt->get_result();
