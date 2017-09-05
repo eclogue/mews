@@ -198,9 +198,12 @@ class Connection
 
             return $this->link->insert_id;
         } else if ($sqlType === 'SELECT') {
-            if ($stmt instanceof \mysqli_result) {
+            $result = $stmt;
+            $ret = [];
+            if ($stmt instanceof \mysqli_stmt) {
                 $result = $stmt->get_result();
-                $ret = [];
+            }
+            if ($result instanceof \mysqli_result) {
                 while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
                     $ret[] = $row;
                 }
