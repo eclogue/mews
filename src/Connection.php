@@ -150,7 +150,6 @@ class Connection
                 throw new RuntimeException(sprintf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
             }
             $this->affectedRows = $stmt->affected_rows;
-
             return $stmt;
         } else {
             $ret = $this->link->query($sql);
@@ -175,8 +174,8 @@ class Connection
             $msg = 'Query Error' . $this->getError() . ' #code ' . $this->getErrorCode();
             if (intval($code) === 2006) {
                 $this->connect($this->config);
-                $this->query($sql, $values);
                 echo $msg . PHP_EOL;
+                return $this->query($sql, $values);
             } else {
                 throw new RuntimeException($msg);
             }
