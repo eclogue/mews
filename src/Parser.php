@@ -104,7 +104,9 @@ class Parser
 
     public function isIndexArray($node)
     {
-        if (!is_array($node)) return false;
+        if (!is_array($node)) {
+            return false;
+        }
         $keys = array_keys($node);
         return is_numeric($keys[0]);
     }
@@ -143,6 +145,7 @@ class Parser
         if ($inChildren) {
             $sql .= ')';
         }
+
         $sql = '(' . $sql . ')';
         $ret = [$sql, $this->values];
         $this->values = [];
@@ -205,7 +208,7 @@ class Parser
         if (!is_numeric($value)) {
             throw new InvalidArgumentException('mews increment value must be number');
         }
-        return $field .= '=' . $field . ' + ' . $value;
+        return $field . '=' . $field . ' + ' . $value;
     }
 
 }

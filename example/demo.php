@@ -59,35 +59,52 @@ $condition = [
         'id' => ['$gt' => 5]
     ],
 ];
-$cache = new Cache($redisConfig);
+
+
+$start =  microtime(true);
+$sm = memory_get_usage();
+// $cache = new Cache($redisConfig);
 $model = new User($config);
-$model->setCache($cache);
-$transaction = $model->startTransaction();
+// $model->setCache($cache);
+// $transaction = $model->startTransaction();
 try {
-$result = $model->builder()->where($condition)->select();
-    $user = $model->find(['id' => ['$in' => [ 9]]]);
-    var_dump($user);
-    $user['status'] = 2;
-    $updated = $user->withTransaction($transaction)->update();
-//var_dump($user->toArray());
-    $model->username = 'test' . rand(1, 1000);
-    $model->password = '123123';
-    $model->nickname = 'waterfly';
-    $model->status = 0;
-    $model->email = rand(1, 1000) . 'email@email.com';
-    $model->created = time();
-//    var_dump($model);
-    $newInstance = $model->save();
-    var_dump($newInstance->pk);
-//    throw new Exception('test');
-    $newInstance->delete();
-    $model->commit();
+$user = $model->findById('1');
+// var_dump($user);  
+//$result = $model->builder()->where($condition)->select();
+//    $user = $model->find(['id' => ['$in' => [ 9]]]);
+//    var_dump($user);
+//
+//    $user->status = 2;
+//    $updated = $user->update();
+////var_dump($user->toArray());
+//    $model->username = 'test' . rand(1, 1000);
+//    $model->password = '123123';
+//    $model->nickname = 'waterfly';
+//    $model->status = 0;
+//    $model->email = rand(1, 1000) . 'email@email.com';
+//    $model->created = time();
+////    var_dump($model);
+//    $newInstance = $model->save();
+//    var_dump($newInstance->pk);
+////    throw new Exception('test');
+//    $newInstance->delete();
+//    $model->commit();
 } catch (Exception $e) {
     var_dump($e->getMessage());
     $model->rollback();
 }
+$end = microtime(true);
+$em = memory_get_usage();
+echo $start . '====' . $end;
 
-//$pool = new Pool($config['servers']);
+echo "em: $em -- sm: $sm \n";
+echo $end - $start;
+
+echo " \n";
+echo $em - $sm;
+
+
+// $pool = new Pool($config['servers']);
 //$i = 0;
 //while ($i < 10) {
 //    $pool->getConnection();

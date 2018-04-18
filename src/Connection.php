@@ -180,6 +180,7 @@ class Connection
                 throw new RuntimeException($msg);
             }
         }
+
         $sql = ltrim($sql);
         $pattern = '#^(insert|update|replace|select|delete)#i';
         preg_match($pattern, $sql, $match);
@@ -202,6 +203,7 @@ class Connection
             if ($stmt instanceof \mysqli_stmt) {
                 $result = $stmt->get_result();
             }
+
             if ($result instanceof \mysqli_result) {
                 while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
                     $ret[] = $row;

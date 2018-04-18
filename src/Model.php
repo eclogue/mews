@@ -67,9 +67,11 @@ class Model implements \ArrayAccess
         if (isset($config['debug'])) {
             $this->debug = $config['debug'];
         }
+
         if (isset($config['prefix'])) {
             $this->prefix = $config['prefix'];
         }
+
         $servers = $config['servers'];
         if (isset($servers['pool']) && $servers['pool']) {
             $this->db = Pool::singleton($servers);
@@ -139,6 +141,7 @@ class Model implements \ArrayAccess
             };
             $release->bindTo($this);
         }
+
         $builder = new Builder($connection, $release); // 如果
         $builder->debug($this->debug);
         $builder->table($this->table);
@@ -170,6 +173,7 @@ class Model implements \ArrayAccess
         if ($where) {
             $builder = $builder->where($where);
         }
+
         $result = $builder->select();
 
         return $result[0]['count'] ?? 0;
@@ -188,11 +192,13 @@ class Model implements \ArrayAccess
         if (!empty($this->pk)) {
             $where = array_merge($this->pk, $where);
         }
+
         $changed = $this->getChange();
         $changed = array_merge($changed, $update);
         if (empty($changed)) {
             return $this;
         }
+
         $this->before();
         $mapping = $this->revertFields($changed);
         $this->builder()->where($where)->update($mapping);
@@ -241,6 +247,7 @@ class Model implements \ArrayAccess
         if (!empty($this->pk)) {
             $where = $this->pk;
         }
+
         $this->before();
         $where = $this->revertFields($where);
         $this->builder()
@@ -262,6 +269,7 @@ class Model implements \ArrayAccess
         if ($this->enableCache) {
             $builder->field('id');
         }
+
         $result = $builder->where($where)
             ->limit(1)
             ->select();
@@ -269,6 +277,7 @@ class Model implements \ArrayAccess
         if (empty($result)) {
             return null;
         }
+
         $result = array_pop($result);
         if ($this->enableCache) {
             return $this->findById($result['id']);
@@ -310,6 +319,7 @@ class Model implements \ArrayAccess
 
             return $value;
         }
+
         return $this->findOne(['id' => $id]);
     }
 
@@ -325,12 +335,14 @@ class Model implements \ArrayAccess
         if (!empty($where)) {
             $where = $this->revertFields($where);
         }
+
         $condition = $this->getChange();
         $where = array_merge($condition, $where);
         $builder = $this->builder();
         if ($this->enableCache) {
             $builder->field(['id']);
         }
+
         $builder->where($where);
         if (!empty($options)) {
             foreach ($options as $method => $option) {
@@ -342,6 +354,7 @@ class Model implements \ArrayAccess
         if (empty($result)) {
             return [];
         }
+
         if ($this->enableCache) {
             $ids = [];
             foreach ($result as $value) {
@@ -349,6 +362,7 @@ class Model implements \ArrayAccess
             }
             return $this->findByIds($ids);
         }
+
         $res = [];
         foreach ($result as $data) {
             $res[] = $this->getModel($data);
@@ -369,21 +383,25 @@ class Model implements \ArrayAccess
         if ($this->enableCache) {
             $builder->field(['id']);
         }
+
         if (!empty($options)) {
             $options = $this->revertFields($options);
             foreach ($options as $method => $option) {
                 $builder = $builder->$method($option);
             }
         }
+
         $result = $builder->select();
         if (empty($result)) {
             return [];
         }
+
         if ($this->enableCache) {
             $ids = [];
             foreach ($result as $value) {
                 $ids[] = $value['id'];
             }
+
             return $this->findByIds($ids);
         }
         $res = [];
@@ -405,6 +423,7 @@ class Model implements \ArrayAccess
         if (!is_array($ids)) {
             throw new \Exception('FindIds param ids must be array');
         }
+
         if ($this->enableCache) {
             $values = $this->loadFromCache($ids);
         } else {
@@ -428,12 +447,11 @@ class Model implements \ArrayAccess
         if (empty($this->attr)) {
             return null;
         }
+
         $this->before();
         $data = [];
-        $result = null;
         if (!empty($this->pk)) {
-            $data = $this->getChange();
-            $result =  $this->update($data);
+            $result = $this->update();
         } else {
             foreach ($this->fields as $field => $entity) {
                 if (isset($this->attr[$field])) {

@@ -54,6 +54,7 @@ class Builder
         foreach ($values as $key => $value) {
             $this->values['where'][] = $value;
         }
+
         return $this;
     }
 
@@ -95,11 +96,13 @@ class Builder
         } else {
             $fields = $this->fields;
         }
+
         list($sql, $values) = $this->toSql();
         $sql = sprintf($select, $fields, $this->tableName, $sql);
         if ($this->isDebug) {
             $this->log($sql, $values);
         }
+
         $res = $this->connection->query($sql, $values);
         $this->free();
 
@@ -119,18 +122,23 @@ class Builder
                 }
             }
         }
+
         if (isset($this->sql['group'])) {
             $sql[] = $this->sql['group'];
         }
+
         if (isset($this->sql['order'])) {
             $sql[] = $this->sql['order'];
         }
+
         if (isset($this->sql['limit'])) {
             $sql[] = $this->sql['limit'];
         }
+
         if (isset($this->sql['offset'])) {
             $sql[] = $this->sql['offset'];
         }
+
         $sql = implode(' ', $sql);
 
         return [$sql, $values];
