@@ -42,7 +42,17 @@ $condition = [
 $userInfo = $user->findById(1);
 $user->findOne($condition);
 $user->findByIds([1, 2, 3]);
-var_dump($userInfo);
+$data = [
+    'nickname' => 'damn it',
+    'status' => [ '$inc' => -1]
+];
+$where = [
+    'status' => [
+        '$gt' => 0
+    ]
+];
+$userInfo->update($where, $data);
+// sql: UPDATE `users` SET `nickname`=?,`status`=`status` + -1 WHERE (`id` = ? AND `status` > ? ) #args: ["damn it",1,0]
 ```
 -------
 
