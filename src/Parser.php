@@ -163,7 +163,7 @@ class Parser
             $temp = [$filed];
             $temp[] = ' ';
             if ($operator === '$inc') {
-                $temp = $this->increment($node['name'], $value);
+                $temp[] = $this->increment($node['name'], $value);
             } else if (self::$operator[$operator] === 'function') {
                 $func = substr($operator, 1);
                 $func = $this->sqlFunction($func);
@@ -175,8 +175,8 @@ class Parser
             } else {
                 $temp[] = self::$operator[$operator];
                 $temp[] = ' ? ';
-
             }
+
             $temp[] = $connector;
             $string .= implode('', $temp);
             if (is_array($value)) {
@@ -208,7 +208,8 @@ class Parser
         if (!is_numeric($value)) {
             throw new InvalidArgumentException('mews increment value must be number');
         }
-        return $field . '=' . $field . ' + ' . $value;
+
+        return '=`' . $field . '` + ' . $value;
     }
 
 }

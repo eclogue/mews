@@ -68,27 +68,37 @@ $model = new User($config);
 // $model->setCache($cache);
 // $transaction = $model->startTransaction();
 try {
-$user = $model->findById('1');
-// var_dump($user);  
-//$result = $model->builder()->where($condition)->select();
-//    $user = $model->find(['id' => ['$in' => [ 9]]]);
-//    var_dump($user);
-//
-//    $user->status = 2;
-//    $updated = $user->update();
-////var_dump($user->toArray());
-//    $model->username = 'test' . rand(1, 1000);
-//    $model->password = '123123';
-//    $model->nickname = 'waterfly';
-//    $model->status = 0;
-//    $model->email = rand(1, 1000) . 'email@email.com';
-//    $model->created = time();
-////    var_dump($model);
-//    $newInstance = $model->save();
-//    var_dump($newInstance->pk);
-////    throw new Exception('test');
-//    $newInstance->delete();
-//    $model->commit();
+    $user = $model->findById('1');
+    $data = [
+        'nickname' => 'damn it',
+        'status' => [ '$inc' => -1]
+    ];
+    $where = [
+        'status' => [
+            '$gt' => 0
+        ]
+    ];
+    $user->update($where, $data);
+    // sql: UPDATE `users` SET `nickname`=?,`status`=`status` + -1 WHERE (`id` = ? AND `status` > ? ) #args: ["damn it",1,0]
+
+    $result = $model->builder()->where($condition)->select();
+    $user = $model->find(['id' => ['$in' => [ 9]]]);
+    var_dump($user);
+
+    $user->status = 2;
+    $updated = $user->update();
+    var_dump($user->toArray());
+    $model->username = 'test' . rand(1, 1000);
+    $model->password = '123123';
+    $model->nickname = 'waterfly';
+    $model->status = 0;
+    $model->email = rand(1, 1000) . 'email@email.com';
+    $model->created = time();
+    $newInstance = $model->save();
+    var_dump($newInstance->pk);
+    throw new Exception('test');
+    $newInstance->delete();
+    $model->commit();
 } catch (Exception $e) {
     var_dump($e->getMessage());
     $model->rollback();

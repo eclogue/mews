@@ -92,6 +92,7 @@ class Connection
         if (isset($config['pool'])) {
             $host = 'p:' . $host;
         }
+
         $port = $config['port'] ?? '3306';
         $dbname = $config['dbname'];
         $charset = $config['charset'] ?? 'utf8';
@@ -101,6 +102,7 @@ class Connection
                 . $this->link->connect_error
             );
         }
+
         $this->link->set_charset($charset);
 
         return $this->link;
@@ -145,11 +147,14 @@ class Connection
                 $types = str_repeat('s', count($values));
                 $stmt->bind_param($types, ...$values);
             }
+
             $stmt->execute();
             if ($stmt->errno) {
                 throw new RuntimeException(sprintf('Stmt error(%d):%s', $stmt->errno, $stmt->error));
             }
+
             $this->affectedRows = $stmt->affected_rows;
+
             return $stmt;
         } else {
             $ret = $this->link->query($sql);
@@ -174,7 +179,6 @@ class Connection
             $msg = 'Query Error' . $this->getError() . ' #code ' . $this->getErrorCode();
             if (intval($code) === 2006) {
                 $this->connect($this->config);
-                echo $msg . PHP_EOL;
                 return $this->query($sql, $values);
             } else {
                 throw new RuntimeException($msg);

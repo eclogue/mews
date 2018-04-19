@@ -44,6 +44,7 @@ class Builder
     public function field($field)
     {
         $this->fields = $field;
+
         return $this;
     }
 
@@ -164,17 +165,18 @@ class Builder
         $setVal = [];
         foreach ($data as $field => $value) {
             if (is_array($value)) {
-                if (isset($value['$increment'])) {
-                    $set[] = '`' . $field . '`=' . $field . '+' . $value;
+                if (isset($value['$inc'])) {
+                    $set[] = '`' . $field . '`=`' . $field . '` + ' . $value['$inc'];
                 } else {
-                    $set[] = '`' . $field . '`=?' . json_encode($value);
-                    $setVal[] = $value;
+                    $set[] = '`' . $field . '`=?';
+                    $setVal[] = json_encode($value);
                 }
             } else {
                 $set[] = '`' . $field . '`=?';
                 $setVal[] = $value;
             }
         }
+
         $set = implode(',', $set);
         list($sql, $values) = $this->toSql();
         $values = array_merge($setVal, $values);
@@ -183,6 +185,7 @@ class Builder
         if ($this->isDebug) {
             $this->log($sql, $values);
         }
+
         $res = $this->connection->query($sql, $values);
         $this->free();
 
@@ -244,6 +247,7 @@ class Builder
         if (!is_string($args)) {
             $args = json_encode($args);
         }
+
         echo '>>sql: ' . $str . ' #args: ' . $args . PHP_EOL;
     }
 }

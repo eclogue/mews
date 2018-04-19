@@ -40,9 +40,11 @@ class Cache implements CacheInterface
         if (isset($config['prefix'])) {
             $this->prefix = $config['prefix'];
         }
+
         if (isset($config['ttl'])) {
             $this->ttl = $config['ttl'];
         }
+
         $connect = $config['servers'];
         $options = $config['options'] ?? [];
         $this->client = new Client($connect, $options);
@@ -100,6 +102,7 @@ class Cache implements CacheInterface
             foreach ($key as $item) {
                 $pipe->expire($item, $ttl);
             }
+
             $pipe->execute();
         } else {
             $this->client->expire($key, $ttl);
@@ -145,6 +148,7 @@ class Cache implements CacheInterface
         if (!$this->isEnable) {
             return false;
         }
+
         $value = serialize($value);
         $ttl = $ttl ?? $this->ttl;
         $pipe = $this->client->pipeline();
@@ -193,10 +197,12 @@ class Cache implements CacheInterface
         if (!$this->isEnable) {
             return $default;
         }
+
         $data = $this->client->mget($keys);
         if (!$data) {
             return $default;
         }
+
         $result = [];
         foreach ($data as $value) {
             if ($value) {
@@ -224,6 +230,7 @@ class Cache implements CacheInterface
         if (!$this->isEnable) {
             return false;
         }
+
         $ttl = $ttl ?? $this->ttl;
         $pipe = $this->client->pipeline();
         foreach($values as $key => $value) {
@@ -231,6 +238,7 @@ class Cache implements CacheInterface
             $pipe->set($key, $value);
             $pipe->expire($key, $ttl);
         }
+
         $pipe->execute();
 
         return true;

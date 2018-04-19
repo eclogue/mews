@@ -183,8 +183,8 @@ class Model implements \ArrayAccess
     /**
      * update model
      *
-     * @param array $where
      * @param array $update
+     * @param array $where
      * @return mixed
      */
     public function update($where = [], $update = [])
@@ -329,6 +329,7 @@ class Model implements \ArrayAccess
      * @param array $where
      * @param array $options
      * @return array
+     * @throws \Exception
      */
     public function find(array $where, $options = [])
     {
@@ -360,6 +361,7 @@ class Model implements \ArrayAccess
             foreach ($result as $value) {
                 $ids[] = $value['id'];
             }
+
             return $this->findByIds($ids);
         }
 
@@ -376,6 +378,7 @@ class Model implements \ArrayAccess
      *
      * @param array $options
      * @return array
+     * @throws \Exception
      */
     public function findAll($options = [])
     {
@@ -421,7 +424,7 @@ class Model implements \ArrayAccess
     public function findByIds($ids)
     {
         if (!is_array($ids)) {
-            throw new \Exception('FindIds param ids must be array');
+            throw new InvalidArgumentException('FindIds param ids must be array');
         }
 
         if ($this->enableCache) {
@@ -596,7 +599,7 @@ class Model implements \ArrayAccess
         return true;
     }
     /**
-     * roolback current transction
+     * rollback current transaction
      *
      * @return void
      */
@@ -634,7 +637,10 @@ class Model implements \ArrayAccess
         $model = clone $this;
         $model->result = $model->convert($data);
         foreach ($this->fields as $field => $entity) {
-            if (!isset($data[$entity['column']])) continue;
+            if (!isset($data[$entity['column']])) {
+                continue;
+            }
+
             $model->fields[$field]['value'] = $data[$entity['column']];
             if (isset($entity['pk'])) {
                 $model->pk[$field] = $data[$entity['column']];
