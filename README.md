@@ -1,6 +1,6 @@
 # Mews
  
- PHP ORM，used connection pool, similar to mongodb query shell.
+ PHP ORM，used like mongodb shell.
  
 ### install
  `composer require eclogue/mews`
@@ -19,7 +19,7 @@ $config = [
   'dbname' => 'test',
 ];
 
-class User extends \Mews\Model {
+class User extends Model {
     public $table = 'users';
     
     public $fields = [
@@ -29,7 +29,7 @@ class User extends \Mews\Model {
     ];
 }
 
-$user = new Model($config);
+$user = new User($config);
 
 $condition = [
     'id' => ['$gt' => 1, '$lt' => 100, '$neq' => 23],
@@ -61,12 +61,12 @@ $userInfo->update($where, $data);
 <?php
 // builder
 $user->builder()
-->field('*')
-->where($condition)
-->order(['id' => 'desc'])
-->skip(100)
-->limit(10)
-->select();
+    ->field('*')
+    ->where($condition)
+    ->order(['id' => 'desc'])
+    ->skip(100)
+    ->limit(10)
+    ->select();
 // execute sql: SELECT * FROM `user` WHERE (`id`>'1' and `id`<'100' and `id`!='23') or (`email`='aaxx@scac.com' and `status`='1') and (`age`<'70') ORDER BY `id` DESC limit 10 offset 100;
 
 ```
