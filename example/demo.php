@@ -9,6 +9,7 @@
 
 define('ROOT', dirname(dirname(__FILE__)));
 require ROOT . '/vendor/autoload.php';
+
 use Mews\Model;
 use Mews\Pool;
 use Mews\Cache;
@@ -19,13 +20,19 @@ class User extends Model
 
     protected $fields = [
         'id' => ['column' => 'id', 'pk' => true, 'type' => 'int', 'auto' => true],
-        'username' => ['column' => 'username', 'type' => 'string'],
-        'nickname' => ['column' => 'nickname', 'type' => 'string'],
-        'password' => ['column' => 'password', 'type' => 'string'],
+        'username' => ['column' => 'username', 'type' => 'varchar'],
+        'nickname' => ['column' => 'nickname', 'type' => 'varchar'],
+        'password' => ['column' => 'password', 'type' => 'varchar'],
         'status' => ['column' => 'status', 'type' => 'int'],
-        'email' => ['column' => 'email', 'type' => 'string', 'default' => ''],
+        'email' => ['column' => 'email', 'type' => 'varchar', 'default' => ''],
         'created' => ['column' => 'created', 'type' => 'int'],
-        'updated' => ['column' => 'updated', 'type' => 'timestamp'],
+        'updated' => ['column' => 'updated', 'type' => 'timestamp', 'default' => 'current'],
+    ];
+
+    protected $indexes = [
+        'username' => ['type' => 'unique', 'column' => ['username']],
+        'email' => ['type' => 'key', 'column' => ['email']],
+
     ];
 
 }
@@ -61,17 +68,21 @@ $condition = [
 ];
 
 
-$start =  microtime(true);
+$start = microtime(true);
 $sm = memory_get_usage();
 // $cache = new Cache($redisConfig);
 $model = new User($config);
+$schema = $model->getSchema();
+$schema->build();
+echo $schema->tableInfo();
+exit();
 // $model->setCache($cache);
 // $transaction = $model->startTransaction();
 try {
     $user = $model->findById('1');
     $data = [
         'nickname' => 'damn it',
-        'status' => [ '$inc' => -1]
+        'status' => ['$inc' => -1]
     ];
     $where = [
         'status' => [
@@ -82,7 +93,7 @@ try {
     // sql: UPDATE `users` SET `nickname`=?,`status`=`status` + -1 WHERE (`id` = ? AND `status` > ? ) #args: ["damn it",1,0]
 
     $result = $model->builder()->where($condition)->select();
-    $user = $model->find(['id' => ['$in' => [ 9]]]);
+    $user = $model->find(['id' => ['$in' => [9]]]);
     var_dump($user);
 
     $user->status = 2;

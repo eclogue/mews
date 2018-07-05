@@ -37,6 +37,10 @@ class Model implements \ArrayAccess
 
     protected $pool = false;
 
+    protected $indexes = [
+        'id' => ['type' => 'primary', 'column' => ['id']],
+    ];
+
 
     /**
      * table schema
@@ -45,7 +49,6 @@ class Model implements \ArrayAccess
      */
     protected $fields = [
         'id' => ['column' => 'id', 'type' => 'int', 'pk' => true],
-        'username' => ['column' => 'username', 'type' => 'string'],
     ];
 
     /**
@@ -102,6 +105,16 @@ class Model implements \ArrayAccess
     }
 
     /**
+     * get Schema
+     *
+     * @return Schema
+     */
+    public function getSchema(): Schema
+    {
+        return new Schema($this->table, $this->fields, $this->indexes);
+    }
+
+    /**
      * @param $cache
      */
     public function setCache($cache)
@@ -119,9 +132,6 @@ class Model implements \ArrayAccess
     public function getKey($key)
     {
         $key = md5($this->table . ':' . $key);
-//        if ($this->cache->hash) {
-//            $key = '{' . $key . '}';
-//        }
 
         return $this->prefix . $key;
     }
@@ -131,7 +141,7 @@ class Model implements \ArrayAccess
      *
      * @return Builder
      */
-    public function builder()
+    public function builder(): Builder
     {
         $connection = $this->getConnection();
         $release = null;
@@ -149,7 +159,7 @@ class Model implements \ArrayAccess
         return $builder;
     }
 
-    private function getConnection()
+    private function getConnection(): Connection
     {
         if ($this->pool) {
             return $this->db->getConnection($this->transactionId);
