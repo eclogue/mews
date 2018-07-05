@@ -26,7 +26,6 @@ class Schema
 
     public function __construct(string $table, array $fields, array $indexes = [])
     {
-        var_dump($table);
         $this->fields = $fields;
         $this->table = $table;
         $this->indexes = $indexes;
@@ -115,7 +114,11 @@ class Schema
 
     public function tableInfo()
     {
-        $sql = "CREATE TABLE `{$this->table}` (" . PHP_EOL;
+        if (empty($this->schema)) {
+            $this->build();
+        }
+
+        $sql = "CREATE TABLE IF NOT EXISTS `{$this->table}` (" . PHP_EOL;
         $schema = implode(',' . PHP_EOL, $this->schema);
         $sql .= $schema . PHP_EOL;
         $sql .= ")ENGINE={$this->engine} DEFAULT CHARSET={$this->charset};";
