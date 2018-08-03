@@ -230,6 +230,7 @@ class Model implements \ArrayAccess
         $data = $this->revertFields($data);
         $id =  $this->builder()->insert($data);
         $this->increment($id);
+        $data['id'] = $id;
 
         return $this->getModel($data);
     }
