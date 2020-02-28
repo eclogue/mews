@@ -7,11 +7,16 @@
  * @date      : 2017/05/30
  * @time      : 上午10:54
  */
+
 namespace Mews;
 
+use ArrayAccess;
+use JsonSerializable;
 use InvalidArgumentException;
+use Mews\Connector\ConnectorInterface;
+use Mews\Builder\BuilderInterface;
 
-class Model implements \ArrayAccess
+class Model implements ArrayAccess, JsonSerializable
 {
     protected $db;
 
@@ -27,15 +32,15 @@ class Model implements \ArrayAccess
 
     private $transactionId = '';
 
-    private $attr = [];
-
-    private $result = [];
+    public $attr = [];
 
     protected $table = '';
 
     protected $enableCache = false;
 
     protected $pool = false;
+
+    protected $connection;
 
     protected $indexes = [
         'id' => ['type' => 'primary', 'column' => ['id']],
@@ -52,13 +57,6 @@ class Model implements \ArrayAccess
     ];
 
     /**
-     * last execute sql
-     *
-     * @var string
-     */
-    protected $lastSql = '';
-
-    /**
      * Model constructor.
      *
      * @param array $config
@@ -73,14 +71,6 @@ class Model implements \ArrayAccess
 
         if (isset($config['prefix'])) {
             $this->prefix = $config['prefix'];
-        }
-
-        $servers = $config['servers'];
-        if (isset($servers['pool']) && $servers['pool']) {
-            $this->db = Pool::singleton($servers);
-            $this->pool = true;
-        } else {
-            $this->db = Connection::singleton($servers);
         }
     }
 
@@ -141,31 +131,30 @@ class Model implements \ArrayAccess
      *
      * @return Builder
      */
-    public function builder(): Builder
+    public function builder(): BuilderInterface
     {
         $connection = $this->getConnection();
         $release = null;
-        if ($this->pool) {
-            $release = function () use ($connection) {
-                $this->db->releaseConnection($connection->identify);
-            };
-            $release->bindTo($this);
-        }
+//        if ($this->pool) {
+//            $release = function () use ($connection) {
+//                $this->db->releaseConnection($connection->identify);
+//            };
+//            $release->bindTo($this);
+//        }
 
-        $builder = new Builder($connection, $release); // 如果
+        $builder = new Builder($connection, $this->transactionId);
+        $builder = $builder->getBuilder($this->config['type']);
         $builder->debug($this->debug);
         $builder->table($this->table);
 
         return $builder;
     }
 
-    private function getConnection(): Connection
+    protected function getConnection()
     {
-        if ($this->pool) {
-            return $this->db->getConnection($this->transactionId);
-        }
+        $connection = new Connector($this->config);
 
-        return $this->db;
+        return $connection->getConnection($this->transactionId);
     }
 
 
@@ -197,12 +186,8 @@ class Model implements \ArrayAccess
      * @param array $where
      * @return mixed
      */
-    public function update($where = [], $update = [])
+    public function update($where, $update = [])
     {
-        if (!empty($this->pk)) {
-            $where = array_merge($this->pk, $where);
-        }
-
         $changed = $this->getChange();
         $changed = array_merge($changed, $update);
         if (empty($changed)) {
@@ -212,11 +197,11 @@ class Model implements \ArrayAccess
         $this->before();
         $mapping = $this->revertFields($changed);
         $this->builder()->where($where)->update($mapping);
-        $this->result = array_merge($this->result, $changed);
+        $this->attr = array_merge($this->attr, $changed);
         $this->after();
         $this->free();
 
-        return $this->getModel($this->result);
+        return $this->newModel($this->attr);
     }
 
     /**
@@ -228,24 +213,11 @@ class Model implements \ArrayAccess
     public function insert(array $data)
     {
         $data = $this->revertFields($data);
-        $id =  $this->builder()->insert($data);
+        $id = $this->builder()->insert($data);
         $this->increment($id);
         $data['id'] = $id;
 
-        return $this->getModel($data);
-    }
-
-    /**
-     * set primary key
-     *
-     * @return void
-     */
-    public function setPrimaryKey() {
-        foreach($this->fields as $field => $entity) {
-            if (isset($entity['pk'])) {
-                $this->pk[$field] = $entity['value'];
-            }
-        }
+        return $this->newModel($data);
     }
 
     /**
@@ -253,12 +225,8 @@ class Model implements \ArrayAccess
      *
      * @param string $where
      */
-    public function delete($where = '')
+    public function delete($where)
     {
-        if (!empty($this->pk)) {
-            $where = $this->pk;
-        }
-
         $this->before();
         $where = $this->revertFields($where);
         $this->builder()
@@ -278,7 +246,7 @@ class Model implements \ArrayAccess
         $where = $this->revertFields($where);
         $builder = $this->builder();
         if ($this->enableCache) {
-            $builder->field('id');
+            $builder->field($this->pk);
         }
 
         $result = $builder->where($where)
@@ -289,12 +257,12 @@ class Model implements \ArrayAccess
             return null;
         }
 
-        $result = array_pop($result);
+        $result = $result[0];
         if ($this->enableCache) {
             return $this->findById($result['id']);
         }
 
-        return $this->getModel($result);
+        return $this->newModel((array) $result);
     }
 
     /**
@@ -324,14 +292,19 @@ class Model implements \ArrayAccess
                 $value = $this->loadFromDB($id);
                 if ($value) {
                     $this->cache->set($key, $value);
-                    $value = $this->getModel($value);
+                    $value = $this->newModel($value);
                 }
             }
 
             return $value;
         }
 
-        return $this->findOne(['id' => $id]);
+        $filter = $this->getPKFilter($id);
+        if (empty($filter)) {
+            return null;
+        }
+
+        return $this->findOne($filter);
     }
 
     /**
@@ -378,7 +351,7 @@ class Model implements \ArrayAccess
 
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->getModel($data);
+            $res[] = $this->newModel($data);
         }
 
         return $res;
@@ -420,7 +393,7 @@ class Model implements \ArrayAccess
         }
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->getModel($data);
+            $res[] = $this->newModel($data);
         }
 
         return $res;
@@ -428,8 +401,8 @@ class Model implements \ArrayAccess
 
     /**
      * Wrap findById by ids
-     *
      * @param $ids
+     * @return array
      * @throws \Exception
      */
     public function findByIds($ids)
@@ -445,7 +418,7 @@ class Model implements \ArrayAccess
         }
 
         if (!empty($values)) {
-            $values = $this->getModel($values);
+            $values = $this->newModel($values);
         }
 
         return $values;
@@ -484,6 +457,7 @@ class Model implements \ArrayAccess
 
         return $result;
     }
+
     /**
      *
      * @param [type] $id
@@ -499,9 +473,10 @@ class Model implements \ArrayAccess
         }
     }
 
-    public function getKeys($ids) {
+    public function getKeys($ids)
+    {
         $keys = [];
-        foreach($ids as $id) {
+        foreach ($ids as $id) {
             $keys[] = $this->getKey($id);
         }
 
@@ -526,7 +501,7 @@ class Model implements \ArrayAccess
             if ($changed) {
                 $missValues = array_pad($missValues, $len, null);
             }
-            foreach($missValues as $key => $value) {
+            foreach ($missValues as $key => $value) {
                 if (isset($tmp[$value['id']])) {
                     continue;
                 }
@@ -563,7 +538,7 @@ class Model implements \ArrayAccess
      * @param array $value
      * @return mixed
      */
-    public function query($sql,array  $value = [])
+    public function query($sql, array $value = [])
     {
         return $this->db->query($sql, $value);
     }
@@ -588,27 +563,31 @@ class Model implements \ArrayAccess
      */
     public function startTransaction()
     {
-        $connection = $this->pool ? $this->db->getConnection(true) : $this->db;
-        $connection->startTransaction();
+        $connection = $this->getConnection();
+        if (is_callable([$connection, 'startTransaction'])) {
+            $connection->startTransaction();
 
-        return $this->transactionId = $connection->identify;
+            return $this->transactionId = $connection->identify;
+        }
     }
 
     /**
      * commit current transction
      *
-     * @return string
+     * @return boolean
      */
     public function commit()
     {
         $connection = $this->getConnection();
-        $connection->commit();
-        if ($this->pool) {
-            $this->db->releaseConnection($connection->identify);
+        if (is_callable([$connection, 'startTransaction'])) {
+            $connection->commit($this->transactionId);
+
+            return true;
         }
 
-        return true;
+        return false;
     }
+
     /**
      * rollback current transaction
      *
@@ -617,11 +596,11 @@ class Model implements \ArrayAccess
     public function rollback()
     {
         $connection = $this->getConnection();
-        $connection->rollback();
-        if ($this->pool) {
-            $this->db->releaseConnection($connection->identify);
+        if (is_callable([$connection, 'rollback'])) {
+            $connection->rollback();
         }
     }
+
 
     /**
      * delete record
@@ -630,8 +609,20 @@ class Model implements \ArrayAccess
      */
     public function remove()
     {
-        if (!$this->pk) return false;
-        return $this->delete(['id' => $this->pk]);
+        if (empty($this->pk)) {
+            return false;
+        }
+
+        return $this->delete($this->getPKFilter($this->pk));
+    }
+
+    public function getPKFilter($pk)
+    {
+        foreach ($this->fields as $key => $field) {
+            if (isset($field['pk']) && $field['pk']) {
+                return [$key => $pk];
+            }
+        }
     }
 
     /**
@@ -640,13 +631,15 @@ class Model implements \ArrayAccess
      * @param $data
      * @return Model
      */
-    public function getModel($data)
+    public function newModel($data)
     {
+        var_dump('new model', $data);
         if (empty($data)) {
             return null;
         }
+
         $model = clone $this;
-        $model->result = $model->convert($data);
+        $model->attr = $model->convert($data);
         foreach ($this->fields as $field => $entity) {
             if (!isset($data[$entity['column']])) {
                 continue;
@@ -669,7 +662,7 @@ class Model implements \ArrayAccess
      * @param array $data
      * @return array
      */
-    public function convert(array $data):array
+    public function convert(array $data): array
     {
         $result = [];
         foreach ($this->fields as $field => $entity) {
@@ -677,10 +670,15 @@ class Model implements \ArrayAccess
                 $result[$field] = $data[$field];
                 continue;
             }
+
             $column = $entity['column'];
-            if (!isset($data[$column])) continue;
+            if (!isset($data[$column])) {
+                continue;
+            }
+
             $result[$field] = $data[$column];
         }
+
         return $result;
     }
 
@@ -695,7 +693,12 @@ class Model implements \ArrayAccess
         if (empty($this->attr)) {
             return $data;
         }
+
         foreach ($this->fields as $field => $entity) {
+            if (isset($entity['pk']) && $entity['pk']) {
+                continue;
+            }
+
             if (isset($this->attr[$field]) && $entity['value'] != $this->attr[$field]) {
                 $data[$field] = $this->attr[$field];
                 $this->fields[$field]['value'] = $this->attr[$field];
@@ -740,8 +743,8 @@ class Model implements \ArrayAccess
      */
     public function __get($key)
     {
-        if (isset($this->result[$key])) {
-            return $this->result[$key];
+        if (isset($this->attr[$key])) {
+            return $this->attr[$key];
         }
         return null;
     }
@@ -769,13 +772,17 @@ class Model implements \ArrayAccess
         if (!$fields) return [];
         $res = [];
         foreach ($fields as $field => $value) {
-            if (!isset($this->fields[$field])) continue;
+            if (!isset($this->fields[$field])) {
+                continue;
+            }
+
             $column = $this->fields[$field]['column'];
             $res[$column] = $value;
         }
 
         return $res;
     }
+
     /**
      * transform to array
      *
@@ -787,10 +794,14 @@ class Model implements \ArrayAccess
         $result = [];
         if (!empty($object)) {
             foreach ($object as $model) {
-                $result[] = $model->result;
+                if ($model instanceof Model) {
+                    $result[] = $model->attr;
+                } else {
+                    $result[] = (array)$model;
+                }
             }
         } else {
-            $result = $this->result;
+            $result = array_merge($this->attr, $this->getChange());
         }
 
         return $result;
@@ -816,6 +827,11 @@ class Model implements \ArrayAccess
     public function offsetGet($offset)
     {
         return $this->attr[$offset] ?? $this->attr[$offset] ?? null;
+    }
+
+    public function jsonSerialize()
+    {
+        return $this->toArray();
     }
 }
 

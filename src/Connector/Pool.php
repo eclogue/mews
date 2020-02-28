@@ -7,13 +7,13 @@
  * @time: 下午1:10
  */
 
-namespace Mews;
+namespace Mews\Connector;
 
 use RuntimeException;
 use InvalidArgumentException;
 use SplQueue;
 
-class Pool
+class Pool implements ConnectorInterface
 {
     /**
      * free connections
@@ -97,11 +97,10 @@ class Pool
      * get connection from connection pool
      * 
      * @param mixed $identify
-     * @return Conection
+     * @return ConnectorInterface
      */
-    public function getConnection($identify = null)
+    public function connect($identify = null)
     {
-
         if (!$this->closed) {
             throw new RuntimeException('Connection pool is closed');
         }
@@ -147,11 +146,11 @@ class Pool
     /**
      * apply new connection
      *
-     * @return Connection
+     * @return Mysql
      */
     private function acquireConnection()
     {
-        $connection = new Connection($this->config);
+        $connection = new Mysql($this->config);
         $this->activeConnections[] = $connection->identify;
         $this->allConnections[$connection->identify] = $connection;
 
@@ -177,7 +176,7 @@ class Pool
      * 
      * @return boolean
      */
-    public function releaseConnection($identify)
+    public function release($identify)
     {
         $index = array_search($identify, $this->activeConnections);
         if ($index && !in_array($identify, $this->transactionManager)) {
@@ -199,7 +198,7 @@ class Pool
     public function query($sql, $value)
     {
         $connection = null;
-        $connection = $this->getConnection();
+        $connection = $this->connect();
         if ($connection->isClose()) {
             $this->reconnect($connection);
         }
@@ -208,9 +207,14 @@ class Pool
         if ($errorCode) {
             throw new RuntimeException('Connection error(%d):%s', $errorCode, $connection->getError());
         }
-        $this->releaseConnection($connection->identify);
+        $this->release($connection->identify);
 
         return $result;
+    }
+
+    public function execute($params, $options)
+    {
+        $this->query($params, $options);
     }
 
     /**
@@ -243,7 +247,7 @@ class Pool
      */
     public function touchConnection($identify)
     {
-        $connection = $this->getConnection();
+        $connection = $this->connect($identify);
         $connection->beginTransaction();
         return $connection;
     }

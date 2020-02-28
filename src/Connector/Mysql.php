@@ -7,13 +7,12 @@
  * @time: 下午12:51
  */
 
-namespace Mews;
+namespace Mews\Connector;
 
 use mysqli;
 use RuntimeException;
-use SebastianBergmann\CodeCoverage\Report\PHP;
 
-class Connection implements ConnectorInterface
+class Mysql implements ConnectorInterface
 {
     /**
      * connection config
@@ -67,11 +66,15 @@ class Connection implements ConnectorInterface
     {
         $this->config = $config;
         $this->identify = uniqid();
-        $this->connect($config);
+        $this->connect();
     }
 
     public static function singleton($config)
     {
+        if (isset($config['pool']) && $config['pool']) {
+            return Pool::singleton($config);
+        }
+
         if (!static::$instance) {
             static::$instance = new static($config);
         }
@@ -83,8 +86,9 @@ class Connection implements ConnectorInterface
      * @param array $config
      * @return mysqli
      */
-    public function connect(array $config)
+    public function connect()
     {
+        $config = $this->config;
         $user = $config['user'] ?? 'root';
         $password = $config['password'] ?? '';
         $host = $config['host'] ?? 'localhost';
@@ -135,7 +139,7 @@ class Connection implements ConnectorInterface
      * @return mixed
      * @throws RuntimeException
      */
-    public function execute($sql, array $values = [])
+    public function execute($sql, $values=[])
     {
         if (!empty($values)) {
             $stmt = $this->link->prepare($sql);
@@ -227,7 +231,6 @@ class Connection implements ConnectorInterface
      */
     private function release()
     {
-
     }
 
     /**
@@ -264,9 +267,6 @@ class Connection implements ConnectorInterface
     public function startTransaction()
     {
         $this->link->autocommit(false);
-//        $this->link->begin_transaction(MYSQLI_TRANS_START_READ_WRITE, $this->identify);
-//        $this->xa = true;
-//        $this->link->query('XA START ' . $this->identify);
     }
 
     /**
@@ -277,8 +277,6 @@ class Connection implements ConnectorInterface
     public function commit()
     {
         $this->link->autocommit(true);
-//        $this->xa = false;
-//        $this->link->query('XA COMMIT ' . $this->identify);
     }
 
     /**
@@ -289,7 +287,5 @@ class Connection implements ConnectorInterface
     public function rollback()
     {
         $this->link->rollback();
-//        $this->xa = false;
-//        $this->link->query('XA ROLLBACK ' . $this->identify);
     }
 }

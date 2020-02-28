@@ -19,7 +19,7 @@ class User extends Model
     protected $table = 'users';
 
     protected $fields = [
-        'id' => ['column' => 'id', 'pk' => true, 'type' => 'int', 'auto' => true],
+        'id' => ['column' => '_id', 'pk' => true, 'type' => 'int', 'auto' => true],
         'username' => ['column' => 'username', 'type' => 'varchar'],
         'nickname' => ['column' => 'nickname', 'type' => 'varchar'],
         'password' => ['column' => 'password', 'type' => 'varchar'],
@@ -38,6 +38,7 @@ class User extends Model
 }
 
 $config = [
+    'type' => 'mysql',
     'servers' => [
         'host' => '127.0.0.1',
         'user' => 'root',
@@ -47,6 +48,12 @@ $config = [
         'pool' => true, // false
     ],
     'debug' => true,
+];
+$mongo = [
+    'uri' => 'mongodb://127.0.0.1:27017/knight',
+    'db' => 'knight',
+    'options' => [],
+    'type' => 'mongodb'
 ];
 
 $redisConfig = [
@@ -62,24 +69,24 @@ $redisConfig = [
 $condition = [
     'id' => ['$in' => [1, 2]],
     'username' => ['$eq' => 'mulberry'],
-    '$or' => [
-        'id' => ['$gt' => 5]
-    ],
 ];
 
 
 $start = microtime(true);
 $sm = memory_get_usage();
 // $cache = new Cache($redisConfig);
-$model = new User($config);
-$schema = $model->getSchema();
-$schema->build();
-echo $schema->tableInfo();
-exit();
+$model = new User($mongo);
+//$schema = $model->getSchema();
+//$schema->build();
+//echo $schema->tableInfo();
+//exit();
 // $model->setCache($cache);
 // $transaction = $model->startTransaction();
 try {
-    $user = $model->findById('1');
+    $user = $model->findById(new \MongoDB\BSON\ObjectId('5e56692e282ede2efd3c08a2'));
+    $data = $user->toArray();
+    unset($user['id']);
+    var_dump($user);
     $data = [
         'nickname' => 'damn it',
         'status' => ['$inc' => -1]
@@ -89,30 +96,10 @@ try {
             '$gt' => 0
         ]
     ];
-    $user->update($where, $data);
-    // sql: UPDATE `users` SET `nickname`=?,`status`=`status` + -1 WHERE (`id` = ? AND `status` > ? ) #args: ["damn it",1,0]
 
-    $result = $model->builder()->where($condition)->select();
-    $user = $model->find(['id' => ['$in' => [9]]]);
-    var_dump($user);
-
-    $user->status = 2;
-    $updated = $user->update();
-    var_dump($user->toArray());
-    $model->username = 'test' . rand(1, 1000);
-    $model->password = '123123';
-    $model->nickname = 'waterfly';
-    $model->status = 0;
-    $model->email = rand(1, 1000) . 'email@email.com';
-    $model->created = time();
-    $newInstance = $model->save();
-    var_dump($newInstance->pk);
-    throw new Exception('test');
-    $newInstance->delete();
-    $model->commit();
 } catch (Exception $e) {
     var_dump($e->getMessage());
-    $model->rollback();
+//    $model->rollback();
 }
 $end = microtime(true);
 $em = memory_get_usage();
