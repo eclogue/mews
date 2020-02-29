@@ -81,10 +81,10 @@ class Mongo implements ConnectorInterface
         return $this->client->executeBulkWrite($this->table, $bulk, $this->writeConcern);
     }
 
-    public function insert($data, $options=[])
+    public function insert($data)
     {
         $bulk = new BulkWrite();
-        $bulk->insert($data, $options);
+        $bulk->insert($data);
         return $this->client->executeBulkWrite($this->table, $bulk, $this->writeConcern);
     }
 

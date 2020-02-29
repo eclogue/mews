@@ -85,17 +85,21 @@ $model = new User($mongo);
 try {
     $user = $model->findById(new \MongoDB\BSON\ObjectId('5e56692e282ede2efd3c08a2'));
     $data = $user->toArray();
-    unset($user['id']);
-    var_dump($user);
-    $data = [
-        'nickname' => 'damn it',
-        'status' => ['$inc' => -1]
-    ];
+    unset($data['id']);
+//    $data = [
+//        'nickname' => 'damn it',
+//        'status' => ['$inc' => -1]
+//    ];
     $where = [
         'status' => [
             '$gt' => 0
         ]
     ];
+//    $inserted = $user->insert($data);
+    $user['username'] .= '+++++++++++++';
+    var_dump('~~~~~~~~~~~', $user->toArray());
+    $user->save();
+    $user->delete(['username' => $user['username']]);
 
 } catch (Exception $e) {
     var_dump($e->getMessage());

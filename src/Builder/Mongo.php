@@ -57,12 +57,12 @@ class Mongo implements BuilderInterface {
 
     public function update(array $update, array $options=[])
     {
-        return $this->connector->updateMany($this->filter, $update, $options);
+        return $this->connector->update($this->filter, $update, $options);
     }
 
     public function delete(array $options=[])
     {
-        return $this->connector->updateMany($this->filter, $options);
+        return $this->connector->delete($this->filter, $options);
     }
 
     public function insert(array $data, array $options=[])
