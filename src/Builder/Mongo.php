@@ -16,7 +16,7 @@ class Mongo implements BuilderInterface {
     public $isDebug = false;
 
     public $cursorStack = [];
-    
+
     public function __construct(ConnectorInterface $connector)
     {
         $this->connector = $connector;
@@ -40,18 +40,14 @@ class Mongo implements BuilderInterface {
 
     public function select(array $options=[])
     {
-        if ($this->isDebug) {
-            var_dump('debug', $this->filter, $this->collectionName, $options);
-        }
-
         $cursor = $this->connector->find($this->filter, $this->cursorStack);
 
-        return iterator_to_array($cursor);
+        return $cursor->toArray();
     }
 
     public function count($options=[])
     {
-        $count = $this->connector->count($this->filter, $options);
+        $count = $this->connector->count($this->filter);
         return ['count' => $count];
     }
 

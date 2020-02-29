@@ -3,6 +3,7 @@
 
 namespace Mews\Connector;
 
+use MongoDB\Collection;
 use MongoDB\Driver\Manager;
 use MongoDB\Driver\Query;
 use MongoDB\Driver\Command;
@@ -51,9 +52,13 @@ class Mongo implements ConnectorInterface
 
     public function query($filter, array $options=[])
     {
-        $query = new Query($filter, $options);
-        $result = $this->client->executeQuery($this->table, $query);
+        $result = $this->collection->find($filter);
         return $result;
+    }
+
+    public function count($filter, array $options=[])
+    {
+        return $this->collection->count($filter);
     }
 
     public function execute($params, $options=[])
@@ -64,6 +69,8 @@ class Mongo implements ConnectorInterface
 
     public function table(string $table)
     {
+        $collection = new Collection($this->client, $this->dbName, $table);
+        $this->collection = $collection;
         $this->table = $this->dbName . '.' . $table;
     }
 
@@ -76,32 +83,28 @@ class Mongo implements ConnectorInterface
     public function update(array $filter, array $data, $options=[])
     {
 
-        $bulk = new BulkWrite();
-        $bulk->update($filter, $data, $options);
-        return $this->client->executeBulkWrite($this->table, $bulk, $this->writeConcern);
+        return $this->collection->updateOne($filter, $data, $options);
     }
 
-    public function insert($data)
+
+
+    public function insert($data, $options=[])
     {
-        $bulk = new BulkWrite();
-        $bulk->insert($data);
-        return $this->client->executeBulkWrite($this->table, $bulk, $this->writeConcern);
+        return $this->collection->insertOne($data, $options);
     }
 
     public function delete($filter, $options=[])
     {
-        $bulk = new BulkWrite();
-        $bulk->delete($filter, $options);
-        return $this->client->executeBulkWrite($this->table, $bulk, $this->writeConcern);
+        return $this->collection->deleteOne($filter, $options);
     }
 
-//
-//    public function __call($name, $arguments)
-//    {
-//        if (is_callable([$this->collection, $name])) {
-//            return $this->collection->$name($arguments);
-//        }
-//
-//        throw new \Exception('Call invalid method: ' + $name . ' in ' . self::class);
-//    }
+
+    public function __call($name, $arguments)
+    {
+        if (is_callable([$this->collection, $name])) {
+            return $this->collection->$name($arguments);
+        }
+
+        throw new \Exception('Call invalid method: ' + $name . ' in ' . self::class);
+    }
 }

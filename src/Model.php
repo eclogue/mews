@@ -189,7 +189,7 @@ class Model implements ArrayAccess, JsonSerializable
             $builder = $builder->where($where);
         }
 
-        $result = $builder->select();
+        $result = $builder->count();
 
         return $result[0]['count'] ?? 0;
     }
@@ -363,7 +363,7 @@ class Model implements ArrayAccess, JsonSerializable
 
         $res = [];
         foreach ($result as $data) {
-            $res[] = $this->newModel($data);
+            $res[] = $this->newModel((array)$data);
         }
 
         return $res;
