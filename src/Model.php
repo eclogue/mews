@@ -76,7 +76,7 @@ class Model implements ArrayAccess, JsonSerializable
 
     public function setAttr(array $data)
     {
-        $this->attr = $data;
+        return $this->attr = $data;
     }
 
     /**
@@ -191,7 +191,7 @@ class Model implements ArrayAccess, JsonSerializable
 
         $result = $builder->count();
 
-        return $result[0]['count'] ?? 0;
+        return $result['count'] ?? 0;
     }
 
 
@@ -241,10 +241,26 @@ class Model implements ArrayAccess, JsonSerializable
     {
         $this->before();
         $where = $this->revertFields($where);
-        $this->builder()
+        if (empty($where)) {
+            return false;
+        }
+
+        $result = $this->builder()
             ->where($where)
             ->delete();
-        return $this->after();
+        $this->after();
+
+        return $result;
+    }
+
+    public function deleteById($id)
+    {
+        $filter = $this->getPKFilter($id);
+        if (empty($filter)) {
+            return false;
+        }
+
+        return $this->delete($filter);
     }
 
     /**
@@ -271,10 +287,11 @@ class Model implements ArrayAccess, JsonSerializable
 
         $result = $result[0];
         if ($this->enableCache) {
-            return $this->findById($result['id']);
+            $pk = $this->getPrimaryKey();
+            return $this->findById($result[$pk]);
         }
 
-        return $this->newModel((array) $result);
+        return $this->newModel((array)$result);
     }
 
     /**
@@ -327,7 +344,7 @@ class Model implements ArrayAccess, JsonSerializable
      * @return array
      * @throws \Exception
      */
-    public function find(array $where, $options = [])
+    public function find(array $where = [], $options = [])
     {
         if (!empty($where)) {
             $where = $this->revertFields($where);
@@ -337,25 +354,20 @@ class Model implements ArrayAccess, JsonSerializable
         $where = array_merge($condition, $where);
         $builder = $this->builder();
         if ($this->enableCache) {
-            $builder->field(['id']);
+            $builder->field($this->getPrimaryKey());
         }
 
         $builder->where($where);
-        if (!empty($options)) {
-            foreach ($options as $method => $option) {
-                $builder = $builder->$method($option);
-            }
-        }
-
-        $result = $builder->select();
+        $result = $builder->select($options);
         if (empty($result)) {
             return [];
         }
 
         if ($this->enableCache) {
             $ids = [];
+            $idKey = $this->getPrimaryKey();
             foreach ($result as $value) {
-                $ids[] = $value['id'];
+                $ids[] = $value[$idKey];
             }
 
             return $this->findByIds($ids);
@@ -380,7 +392,7 @@ class Model implements ArrayAccess, JsonSerializable
     {
         $builder = $this->builder();
         if ($this->enableCache) {
-            $builder->field(['id']);
+            $builder->field($this->getPrimaryKey());
         }
 
         if (!empty($options)) {
@@ -397,8 +409,9 @@ class Model implements ArrayAccess, JsonSerializable
 
         if ($this->enableCache) {
             $ids = [];
+            $pk = $this->getPrimaryKey();
             foreach ($result as $value) {
-                $ids[] = $value['id'];
+                $ids[] = $value[$pk];
             }
 
             return $this->findByIds($ids);
@@ -478,12 +491,13 @@ class Model implements ArrayAccess, JsonSerializable
                 $this->fields[$field]['value'] = $data[$field];
             } else if (isset($entity['default'])) {
                 $result[$field] = $entity['default'];
-                $this->fields[$field] = $entity['default'];
+                $this->fields[$field]['value'] = $entity['default'];
             }
         }
 
         return $result;
     }
+
     /**
      *
      * @param [type] $id
@@ -518,8 +532,9 @@ class Model implements ArrayAccess, JsonSerializable
         if ($len !== $valueLen) {
             $tmp = [];
             $ret = [];
+            $pk = $this->getPrimaryKey();
             foreach ($values as $key => $value) {
-                $tmp[$value['id']] = $value;
+                $tmp[$value[$pk]] = $value;
             }
             $missKeys = array_diff($ids, array_keys($tmp));
             $missValues = $this->loadFromDB($missKeys);
@@ -528,10 +543,10 @@ class Model implements ArrayAccess, JsonSerializable
                 $missValues = array_pad($missValues, $len, null);
             }
             foreach ($missValues as $key => $value) {
-                if (isset($tmp[$value['id']])) {
+                if (isset($tmp[$value[$pk]])) {
                     continue;
                 }
-                $tmp[$value['id']] = $value;
+                $tmp[$value[$pk]] = $value;
             }
             $caches = [];
             foreach ($ids as $key => $id) {
@@ -551,7 +566,8 @@ class Model implements ArrayAccess, JsonSerializable
     {
         $builder = $this->builder();
         $operator = is_array($ids) ? '$in' : '$eq';
-        $where = ['id' => [$operator => $ids]];
+        $pk = $this->getPrimaryKey();
+        $where = [$pk => [$operator => $ids]];
         $result = $builder->where($where)->select();
 
         return $result ? $result : [];
@@ -639,7 +655,7 @@ class Model implements ArrayAccess, JsonSerializable
             return false;
         }
 
-        return $this->delete($this->getPKFilter($this->pk));
+        return $this->deleteById($this->pk);
     }
 
     public function getPKFilter($pk)
@@ -665,10 +681,13 @@ class Model implements ArrayAccess, JsonSerializable
         }
 
         $model = clone $this;
-        $model->setAttr($model->convert($data));
+        $data = $model->setAttr($model->convert($data));
         foreach ($this->fields as $field => $entity) {
             if (!isset($data[$entity['column']])) {
                 continue;
+            }
+            if (!empty($entity['pk'])) {
+                $model->pk = $data[$entity['column']];
             }
 
             $model->fields[$field]['value'] = $data[$entity['column']];
@@ -688,15 +707,11 @@ class Model implements ArrayAccess, JsonSerializable
     {
         $result = [];
         foreach ($this->fields as $field => $entity) {
-            if (isset($data[$field])) {
-                $result[$field] = $data[$field];
-                continue;
-            }
-
             $column = $entity['column'];
             if (!isset($data[$column])) {
                 continue;
             }
+
 
             $result[$field] = $data[$column];
         }
@@ -721,7 +736,10 @@ class Model implements ArrayAccess, JsonSerializable
                 continue;
             }
 
-            if (isset($this->attr[$field]) && $entity['value'] != $this->attr[$field]) {
+            if (isset($this->attr[$field]) &&
+                isset($entity['value']) &&
+                $entity['value'] != $this->attr[$field]
+            ) {
                 $data[$field] = $this->attr[$field];
                 $this->fields[$field]['value'] = $this->attr[$field];
             }
@@ -777,8 +795,7 @@ class Model implements ArrayAccess, JsonSerializable
      */
     public function __set($key, $value)
     {
-        if (isset($this->fields[$key]))
-            $this->attr[$key] = $value;
+        $this->attr[$key] = $value;
     }
 
     /**
@@ -789,14 +806,18 @@ class Model implements ArrayAccess, JsonSerializable
      */
     protected function revertFields($fields)
     {
-        if (!$fields) return [];
+        if (empty($fields)) {
+            return [];
+        }
+
         $res = [];
         foreach ($fields as $field => $value) {
             if (!isset($this->fields[$field])) {
+                $res[$field] = $value;
                 continue;
             }
 
-            $column = $this->fields[$field]['column'];
+            $column = $this->fields[$field]['column'] ?? $field;
             $res[$column] = $value;
         }
 
@@ -817,7 +838,7 @@ class Model implements ArrayAccess, JsonSerializable
                 if ($model instanceof Model) {
                     $result[] = $model->attr;
                 } else {
-                    $result[] = (array) $model;
+                    $result[] = (array)$model;
                 }
             }
         } else {
@@ -829,8 +850,7 @@ class Model implements ArrayAccess, JsonSerializable
 
     public function offsetSet($offset, $value)
     {
-        if (isset($this->attr[$offset]))
-            $this->attr[$offset] = $value;
+        return $this->attr[$offset] = $value;
     }
 
 

@@ -54,6 +54,10 @@ class Mysql implements BuilderInterface
 
     public function where($condition)
     {
+        if (empty($condition)) {
+            return $this;
+        }
+        
         list($sql, $values) = $this->parser->build($condition);
         $this->sql['where'] = $sql;
         foreach ($values as $key => $value) {
@@ -237,7 +241,7 @@ class Mysql implements BuilderInterface
         $this->sql = [];
         $this->values = [];
         $this->fields = [];
-        $this->realse();
+        $this->release();
     }
 
     public function release()

@@ -4,6 +4,8 @@
 namespace Mews\Builder;
 
 use Mews\Connector\ConnectorInterface;
+use MongoDB\BSON\ObjectId;
+use MongoDB\Collection;
 
 class Mongo implements BuilderInterface {
 
@@ -30,17 +32,20 @@ class Mongo implements BuilderInterface {
     public function table(string $table)
     {
         $this->collectionName = $table;
+        $this->connector->table($table);
     }
 
     public function where(array $filter)
     {
+        $filter = $this->parseObjectId($filter);
         $this->filter = array_merge($this->filter, $filter);
         return $this;
     }
 
     public function select(array $options=[])
     {
-        $cursor = $this->connector->find($this->filter, $this->cursorStack);
+        $options = array_merge($this->cursorStack, $options);
+        $cursor = $this->connector->find($this->filter, $options);
 
         return $cursor->toArray();
     }
@@ -66,7 +71,7 @@ class Mongo implements BuilderInterface {
         return $this->connector->insert($data, $options);
     }
 
-    public function getCollection()
+    public function getCollection(): Collection
     {
         return $this->connector->table($this->collectionName);
     }
@@ -75,10 +80,30 @@ class Mongo implements BuilderInterface {
     {
         $collection = $this->getCollection();
         if (is_callable([$collection, $name])) {
-            return $collection->$name($arguments);
+            return call_user_func_array([$collection, $name], $arguments);
         }
-        $this->cursorStack[$name] = $arguments;
+
+        $this->cursorStack[$name] = count($arguments) === 1 ? $arguments[0] : $arguments;
 
         return $this;
+    }
+
+    public function parseObjectId(array $filter)
+    {
+        $result = [];
+        foreach ($filter as $key => &$item) {
+            if ($key === '_id' && !($item instanceof ObjectId)) {
+                $result[$key] = new ObjectId($item);
+                continue;
+            }
+            if (is_array($item)) {
+                $result[$key] = $this->parseObjectId($item);
+                continue;
+            }
+
+            $result[$key] = $item;
+        }
+
+        return $result;
     }
 }

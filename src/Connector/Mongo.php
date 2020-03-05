@@ -50,15 +50,20 @@ class Mongo implements ConnectorInterface
         return new Manager($this->config['uri'], $this->config['options']);
     }
 
+    public function getCollection(): Collection
+    {
+        return $this->collection;
+    }
+
     public function query($filter, array $options=[])
     {
-        $result = $this->collection->find($filter);
+        $result = $this->getCollection()->find($filter, $options);
         return $result;
     }
 
     public function count($filter, array $options=[])
     {
-        return $this->collection->count($filter);
+        return $this->getCollection()->count($filter);
     }
 
     public function execute($params, $options=[])
@@ -72,6 +77,7 @@ class Mongo implements ConnectorInterface
         $collection = new Collection($this->client, $this->dbName, $table);
         $this->collection = $collection;
         $this->table = $this->dbName . '.' . $table;
+        return $collection;
     }
 
 
@@ -83,26 +89,29 @@ class Mongo implements ConnectorInterface
     public function update(array $filter, array $data, $options=[])
     {
 
-        return $this->collection->updateOne($filter, $data, $options);
+//        $bulk = new BulkWrite();
+//        $bulk->update($filter, $data, $options);
+//        return $this->client->executeBulkWrite($this->table, $bulk, $this->writeConcern);
+        return $this->getCollection()->updateOne($filter, $data, $options);
     }
 
 
 
-    public function insert($data, $options=[])
+    public function insert($data, array $options=[])
     {
-        return $this->collection->insertOne($data, $options);
+        return $this->getCollection()->insertOne($data, $options);
     }
 
     public function delete($filter, $options=[])
     {
-        return $this->collection->deleteOne($filter, $options);
+        return $this->getCollection()->deleteOne($filter, $options);
     }
 
 
     public function __call($name, $arguments)
     {
         if (is_callable([$this->collection, $name])) {
-            return $this->collection->$name($arguments);
+            return call_user_func_array([$this->collection, $name], $arguments);
         }
 
         throw new \Exception('Call invalid method: ' + $name . ' in ' . self::class);
