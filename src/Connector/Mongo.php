@@ -5,10 +5,8 @@ namespace Mews\Connector;
 
 use MongoDB\Collection;
 use MongoDB\Driver\Manager;
-use MongoDB\Driver\Query;
 use MongoDB\Driver\Command;
 use MongoDB\Driver\WriteConcern;
-use MongoDB\Driver\BulkWrite;
 
 class Mongo implements ConnectorInterface
 {
